@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    image: php:8.2-cli
+    container_name: joblink-backend
+    working_dir: /var/www/backend
+    volumes:
+      - ./backend:/var/www/backend
+    ports:
+      - "8000:8000"
+    command: php -S 0.0.0.0:8000 -t public/
+
+  mysql:
+    image: mysql:8.0
+    container_name: joblink-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: joblink
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
