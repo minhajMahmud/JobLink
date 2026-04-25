@@ -41,6 +41,17 @@ export interface AppNotification {
   href?: string;
 }
 
+export interface NotificationPreference {
+  category: NotificationCategory;
+  email: boolean;
+  push: boolean;
+  inApp: boolean;
+}
+
+export interface NotificationPreferences {
+  [key: string]: NotificationPreference;
+}
+
 export const categoryMeta: Record<NotificationCategory, { icon: LucideIcon; tone: string; label: string }> = {
   report: { icon: Flag, tone: "bg-destructive/10 text-destructive", label: "Report" },
   spam: { icon: ShieldAlert, tone: "bg-destructive/10 text-destructive", label: "Spam" },
@@ -64,6 +75,7 @@ const seekerSeed: AppNotification[] = [
     description: "CloudScale advanced your application for Senior Product Designer.",
     time: "12 minutes ago",
     read: false,
+    href: "/jobs",
   },
   {
     id: "ns-2",
@@ -72,6 +84,7 @@ const seekerSeed: AppNotification[] = [
     description: "Video interview with the BrightLabs hiring team.",
     time: "1 hour ago",
     read: false,
+    href: "/messages",
   },
   {
     id: "ns-3",
@@ -80,6 +93,7 @@ const seekerSeed: AppNotification[] = [
     description: "Quantum Finance, BrightLabs, and 6 others viewed your profile.",
     time: "3 hours ago",
     read: false,
+    href: "/profile",
   },
   {
     id: "ns-4",
@@ -88,6 +102,7 @@ const seekerSeed: AppNotification[] = [
     description: "Head of Talent at BrightLabs sent you a connection request.",
     time: "Yesterday",
     read: true,
+    href: "/network",
   },
   {
     id: "ns-5",
@@ -95,8 +110,7 @@ const seekerSeed: AppNotification[] = [
     title: "New message from James Wilson",
     description: "“Hey Alex — would love to chat about a senior design role.”",
     time: "Yesterday",
-    read: true,
-  },
+    read: true,    href: "/messages",  },
 ];
 
 const employerSeed: AppNotification[] = [
@@ -108,6 +122,7 @@ const employerSeed: AppNotification[] = [
     time: "8 minutes ago",
     read: false,
     priority: "high",
+    href: "/jobs",
   },
   {
     id: "ne-2",
@@ -116,6 +131,7 @@ const employerSeed: AppNotification[] = [
     description: "Video call scheduled for the Frontend Engineer role.",
     time: "30 minutes ago",
     read: false,
+    href: "/messages",
   },
   {
     id: "ne-3",
@@ -125,6 +141,7 @@ const employerSeed: AppNotification[] = [
     time: "2 hours ago",
     read: false,
     priority: "medium",
+    href: "/jobs",
   },
   {
     id: "ne-4",
@@ -133,6 +150,7 @@ const employerSeed: AppNotification[] = [
     description: "Priya Sharma responded to your message about the design role.",
     time: "Yesterday",
     read: true,
+    href: "/messages",
   },
   {
     id: "ne-5",
@@ -141,6 +159,7 @@ const employerSeed: AppNotification[] = [
     description: "Your weekly hiring funnel report is now available.",
     time: "Yesterday",
     read: true,
+    href: "/employer/dashboard",
   },
 ];
 
@@ -153,6 +172,7 @@ const adminSeed: AppNotification[] = [
     time: "5 minutes ago",
     read: false,
     priority: "high",
+    href: "/admin/dashboard",
   },
   {
     id: "na-2",
@@ -161,8 +181,7 @@ const adminSeed: AppNotification[] = [
     description: "12 users reported the post “BUY FOLLOWERS NOW”.",
     time: "20 minutes ago",
     read: false,
-    priority: "high",
-  },
+    priority: "high",    href: "/admin/dashboard",  },
   {
     id: "na-3",
     category: "verification",
@@ -171,6 +190,7 @@ const adminSeed: AppNotification[] = [
     time: "1 hour ago",
     read: false,
     priority: "medium",
+    href: "/admin/dashboard",
   },
   {
     id: "na-4",
@@ -179,16 +199,14 @@ const adminSeed: AppNotification[] = [
     description: "“Earn $5000/week from home” received 9 user reports.",
     time: "2 hours ago",
     read: false,
-    priority: "high",
-  },
+    priority: "high",    href: "/admin/dashboard",  },
   {
     id: "na-5",
     category: "moderation",
     title: "Comment flagged for hate speech",
     description: "Reported by Daniel Kim on the “Hiring tip” thread.",
     time: "Yesterday",
-    read: true,
-  },
+    read: true,    href: "/admin/dashboard",  },
   {
     id: "na-6",
     category: "system",
@@ -196,6 +214,7 @@ const adminSeed: AppNotification[] = [
     description: "3 failed attempts from IP 203.0.113.55 — auto rate-limited.",
     time: "Yesterday",
     read: true,
+    href: "/admin/dashboard",
   },
 ];
 
@@ -205,18 +224,39 @@ const seedByRole: Record<UserRole, AppNotification[]> = {
   admin: adminSeed,
 };
 
+const defaultPreferences: Record<NotificationCategory, NotificationPreference> = {
+  report: { category: "report", email: true, push: true, inApp: true },
+  spam: { category: "spam", email: true, push: false, inApp: true },
+  verification: { category: "verification", email: true, push: true, inApp: true },
+  moderation: { category: "moderation", email: true, push: false, inApp: true },
+  system: { category: "system", email: false, push: false, inApp: true },
+  application: { category: "application", email: true, push: true, inApp: true },
+  interview: { category: "interview", email: true, push: true, inApp: true },
+  message: { category: "message", email: true, push: true, inApp: true },
+  connection: { category: "connection", email: true, push: true, inApp: true },
+  profile: { category: "profile", email: false, push: false, inApp: true },
+  job: { category: "job", email: true, push: true, inApp: true },
+  applicant: { category: "applicant", email: true, push: true, inApp: true },
+};
+
 interface NotificationsContextValue {
   notifications: AppNotification[];
   unreadCount: number;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   clearAll: () => void;
+  preferences: Record<NotificationCategory, NotificationPreference>;
+  updatePreference: (category: NotificationCategory, deliveryMethod: "email" | "push" | "inApp", enabled: boolean) => void;
 }
 
 const NotificationsContext = createContext<NotificationsContextValue | undefined>(undefined);
 
 export function NotificationsProvider({ role, children }: { role: UserRole; children: ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>(seedByRole[role]);
+  const [preferences, setPreferences] = useState<Record<NotificationCategory, NotificationPreference>>(() => {
+    const stored = localStorage.getItem(`notification-prefs-${role}`);
+    return stored ? JSON.parse(stored) : defaultPreferences;
+  });
 
   const markAsRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
@@ -228,6 +268,20 @@ export function NotificationsProvider({ role, children }: { role: UserRole; chil
 
   const clearAll = useCallback(() => setNotifications([]), []);
 
+  const updatePreference = useCallback(
+    (category: NotificationCategory, deliveryMethod: "email" | "push" | "inApp", enabled: boolean) => {
+      setPreferences((prev) => {
+        const updated = {
+          ...prev,
+          [category]: { ...prev[category], [deliveryMethod]: enabled },
+        };
+        localStorage.setItem(`notification-prefs-${role}`, JSON.stringify(updated));
+        return updated;
+      });
+    },
+    [role],
+  );
+
   const value = useMemo<NotificationsContextValue>(
     () => ({
       notifications,
@@ -235,8 +289,10 @@ export function NotificationsProvider({ role, children }: { role: UserRole; chil
       markAsRead,
       markAllAsRead,
       clearAll,
+      preferences,
+      updatePreference,
     }),
-    [notifications, markAsRead, markAllAsRead, clearAll],
+    [notifications, markAsRead, markAllAsRead, clearAll, preferences, updatePreference],
   );
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;

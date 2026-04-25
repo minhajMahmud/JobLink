@@ -1,11 +1,15 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  BadgeCheck,
   Briefcase,
   Building2,
   CalendarDays,
+  Crown,
   LogOut,
   MessageSquare,
   Search,
+  Shield,
   Sparkles,
   Star,
   TrendingUp,
@@ -14,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import NotificationsBell from "@/components/notifications/NotificationsBell";
 import {
@@ -60,8 +65,19 @@ const panelStats = [
   },
 ] as const;
 
+const employerBadges = [
+  { icon: BadgeCheck, label: "Verified Employer", color: "text-blue-600" },
+  { icon: Crown, label: "Premium Recruiter", color: "text-amber-500" },
+  { icon: Shield, label: "Trusted Hiring", color: "text-emerald-600" },
+] as const;
+
+function barValue(value: number) {
+  return Math.max(12, Math.min(100, value));
+}
+
 export default function EmployerDashboard() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [companyProfile, setCompanyProfile] = useState(initialCompanyProfile);
   const [jobs, setJobs] = useState(initialJobs);
   const [applicants, setApplicants] = useState(initialApplicants);
@@ -153,31 +169,58 @@ export default function EmployerDashboard() {
   return (
     <div className="min-h-screen bg-background px-4 py-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-[2rem] border border-border bg-card p-6 shadow-card sm:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">Employer Panel</p>
-              <h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-foreground">Manage hiring from one control room.</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-                Review applicants, publish company updates, promote featured roles, and track hiring momentum in one place.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 self-start rounded-2xl border border-border bg-background p-3">
-              <img src={user?.avatar} alt={user?.name} className="h-12 w-12 rounded-2xl object-cover" />
+        <section className="overflow-hidden rounded-[2rem] border border-border bg-card shadow-card">
+          <div className="relative p-6 sm:p-8">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 via-violet-600/10 to-emerald-500/10" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/60" />
+            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="font-medium text-foreground">{user?.name}</p>
-                <p className="text-sm text-muted-foreground">{user?.company ?? companyProfile.name}</p>
+                <p className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">Employer Panel</p>
+                <h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-foreground">Manage hiring from one control room.</h1>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
+                  Review applicants, publish company updates, promote featured roles, and track hiring momentum in one place.
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {employerBadges.map((badge) => (
+                    <span key={badge.label} className="inline-flex items-center gap-1.5 rounded-xl border border-border/70 bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm">
+                      <badge.icon className={`h-3.5 w-3.5 ${badge.color}`} />
+                      {badge.label}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <NotificationsBell variant="panel" />
-              <button
-                type="button"
-                onClick={logout}
-                className="ml-2 inline-flex h-10 items-center gap-2 rounded-xl border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </button>
+
+              <div className="self-start rounded-2xl border border-border bg-background/95 p-3 shadow-sm backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                  <img src={user?.avatar} alt={user?.name} className="h-12 w-12 rounded-2xl object-cover ring-2 ring-primary/20" />
+                  <div>
+                    <p className="font-medium text-foreground">{user?.name}</p>
+                    <p className="text-sm text-muted-foreground">{user?.company ?? companyProfile.name}</p>
+                  </div>
+                  <NotificationsBell variant="panel" />
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-secondary/60 px-3 py-2 text-xs">
+                  <span className="text-muted-foreground">Hiring health</span>
+                  <span className="font-semibold text-foreground">94% strong</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/messages")}
+                  className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Messages
+                </button>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -258,7 +301,13 @@ export default function EmployerDashboard() {
                 <input value={newJob.location} onChange={(event) => setNewJob((current) => ({ ...current, location: event.target.value }))} placeholder="Location" className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20" />
                 <input value={newJob.salary} onChange={(event) => setNewJob((current) => ({ ...current, salary: event.target.value }))} placeholder="Salary range" className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20" />
                 <div className="flex gap-3">
-                  <select value={newJob.type} onChange={(event) => setNewJob((current) => ({ ...current, type: event.target.value }))} className="h-11 flex-1 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20">
+                  <select
+                    value={newJob.type}
+                    onChange={(event) => setNewJob((current) => ({ ...current, type: event.target.value }))}
+                    title="Job type"
+                    aria-label="Job type"
+                    className="h-11 flex-1 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20"
+                  >
                     <option>Full-time</option>
                     <option>Part-time</option>
                     <option>Hybrid</option>
@@ -313,7 +362,13 @@ export default function EmployerDashboard() {
 
               <div className="grid gap-4 lg:grid-cols-4">
                 <input value={candidateSearch} onChange={(event) => setCandidateSearch(event.target.value)} placeholder="Search candidate" className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20" />
-                <select value={candidateStatus} onChange={(event) => setCandidateStatus(event.target.value as ApplicantStatus | "All")} className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20">
+                <select
+                  value={candidateStatus}
+                  onChange={(event) => setCandidateStatus(event.target.value as ApplicantStatus | "All")}
+                  title="Applicant status filter"
+                  aria-label="Applicant status filter"
+                  className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20"
+                >
                   <option value="All">All statuses</option>
                   <option value="New">New</option>
                   <option value="Reviewing">Reviewing</option>
@@ -373,12 +428,18 @@ export default function EmployerDashboard() {
             <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
               <h3 className="font-display text-xl font-semibold text-foreground">Interview scheduling</h3>
               <div className="mt-5 grid gap-4 lg:grid-cols-5">
-                <input value={newInterview.candidate} onChange={(event) => setNewInterview((current) => ({ ...current, candidate: event.target.value }))} placeholder="Candidate name" className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20" />
-                <input value={newInterview.role} onChange={(event) => setNewInterview((current) => ({ ...current, role: event.target.value }))} placeholder="Role" className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20" />
-                <input type="date" value={newInterview.date} onChange={(event) => setNewInterview((current) => ({ ...current, date: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20" />
-                <input type="time" value={newInterview.time} onChange={(event) => setNewInterview((current) => ({ ...current, time: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20" />
+                <input value={newInterview.candidate} onChange={(event) => setNewInterview((current) => ({ ...current, candidate: event.target.value }))} placeholder="Candidate name" title="Candidate name" className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20" />
+                <input value={newInterview.role} onChange={(event) => setNewInterview((current) => ({ ...current, role: event.target.value }))} placeholder="Role" title="Role" className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20" />
+                <input type="date" value={newInterview.date} onChange={(event) => setNewInterview((current) => ({ ...current, date: event.target.value }))} title="Interview date" aria-label="Interview date" className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20" />
+                <input type="time" value={newInterview.time} onChange={(event) => setNewInterview((current) => ({ ...current, time: event.target.value }))} title="Interview time" aria-label="Interview time" className="h-11 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20" />
                 <div className="flex gap-3">
-                  <select value={newInterview.mode} onChange={(event) => setNewInterview((current) => ({ ...current, mode: event.target.value as InterviewMode }))} className="h-11 flex-1 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20">
+                  <select
+                    value={newInterview.mode}
+                    onChange={(event) => setNewInterview((current) => ({ ...current, mode: event.target.value as InterviewMode }))}
+                    title="Interview mode"
+                    aria-label="Interview mode"
+                    className="h-11 flex-1 rounded-xl border border-input bg-background px-4 outline-none focus:border-primary focus:ring-2 focus:ring-ring/20"
+                  >
                     <option value="Video">Video</option>
                     <option value="Phone">Phone</option>
                     <option value="Onsite">Onsite</option>
@@ -448,9 +509,7 @@ export default function EmployerDashboard() {
                           <span className="font-medium text-foreground">{job.title}</span>
                           <span className="text-muted-foreground">{job.applicants} applicants</span>
                         </div>
-                        <div className="h-3 rounded-full bg-secondary">
-                          <div className="h-3 rounded-full bg-primary" style={{ width: `${width}%` }} />
-                        </div>
+                        <Progress value={barValue(width)} className="h-3" />
                       </div>
                     );
                   })}
@@ -473,9 +532,7 @@ export default function EmployerDashboard() {
                         <span className="font-medium text-foreground">{item.label}</span>
                         <span className="text-muted-foreground">{item.value}%</span>
                       </div>
-                      <div className="h-3 rounded-full bg-secondary">
-                        <div className="h-3 rounded-full bg-accent" style={{ width: `${item.value}%` }} />
-                      </div>
+                      <Progress value={item.value} className="h-3" />
                     </div>
                   ))}
                 </div>

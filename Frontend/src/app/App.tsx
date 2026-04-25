@@ -14,6 +14,7 @@ import MessagesPage from "@/pages/MessagesPage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import ApplicationsPage from "@/pages/ApplicationsPage";
 import LoginPage from "@/pages/LoginPage";
+import NotificationPreferencesPage from "@/pages/settings/NotificationPreferencesPage";
 import EmployerDashboard from "@/pages/employer/EmployerDashboard";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import NotFound from "@/pages/NotFound";
@@ -37,6 +38,8 @@ function AppRoutes() {
       <NotificationsProvider role="employer">
         <Routes>
           <Route path="/employer" element={<EmployerDashboard />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/settings/notifications" element={<NotificationPreferencesPage />} />
           <Route path="*" element={<Navigate to="/employer" replace />} />
         </Routes>
       </NotificationsProvider>
@@ -48,6 +51,8 @@ function AppRoutes() {
       <NotificationsProvider role="admin">
         <Routes>
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/settings/notifications" element={<NotificationPreferencesPage />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </NotificationsProvider>
@@ -64,6 +69,7 @@ function AppRoutes() {
           <Route path="/network" element={<NetworkPage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/settings/notifications" element={<NotificationPreferencesPage />} />
           <Route path="/applications" element={<ApplicationsPage />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="*" element={<NotFound />} />
