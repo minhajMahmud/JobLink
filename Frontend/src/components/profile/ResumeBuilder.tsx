@@ -1,10 +1,8 @@
-import { useState, useRef } from "react";
 import {
   Download,
   Plus,
   Trash2,
   LayoutTemplate,
-  Sparkles,
   FileDown,
   CheckCircle2,
   Columns,
@@ -21,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { currentUser } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { useState, useRef } from "react";
 
 type Theme = "classic" | "modern" | "creative" | "developer" | "executive";
 
@@ -155,7 +154,7 @@ export default function ResumeBuilder() {
 
   const handleDownload = async () => {
     toast({ title: "Generating PDF...", description: "Please wait while we render your professional resume." });
-    
+
     // Lazy load html2pdf.js from CDN
     if (!(window as any).html2pdf) {
       await new Promise((resolve) => {
@@ -168,7 +167,7 @@ export default function ResumeBuilder() {
 
     const element = printRef.current;
     if (!element) return;
-    
+
     // Temporarily make the hidden print wrapper block-level and position it at top-left
     // This prevents html2canvas from cutting off the left side due to 'mx-auto' or scroll offsets.
     element.classList.remove('hidden');
@@ -181,14 +180,14 @@ export default function ResumeBuilder() {
     element.style.zIndex = '9999';
 
     const opt = {
-      margin:       0,
-      filename:     `${name.replace(/\\s/g, "_")}_Resume.pdf`,
-      image:        { type: 'jpeg', quality: 1 },
-      html2canvas:  { scale: 2, useCORS: true, letterRendering: true, scrollY: 0, scrollX: 0 },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['css', 'legacy'] }
+      margin: 0,
+      filename: `${name.replace(/\\s/g, "_")}_Resume.pdf`,
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true, scrollY: 0, scrollX: 0 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] }
     };
-    
+
     try {
       await (window as any).html2pdf().set(opt).from(element).save();
       toast({ title: "PDF Exported!", description: "Your resume has been successfully downloaded." });
@@ -763,7 +762,7 @@ export default function ResumeBuilder() {
           </div>
 
           <div className="w-full h-full overflow-y-auto no-scrollbar flex justify-center items-start pt-10 pb-32">
-            <div 
+            <div
               className="bg-white shadow-2xl origin-top"
               style={{ width: '210mm', minHeight: '297mm', transform: 'scale(0.55)', marginBottom: '-45%' }}
             >

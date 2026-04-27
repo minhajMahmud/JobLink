@@ -1,4 +1,4 @@
-export type ApplicantStatus = "New" | "Reviewing" | "Accepted" | "Rejected";
+export type ApplicantStatus = "Applied" | "Reviewed" | "Interview" | "Offer" | "Hired" | "Rejected";
 export type InterviewMode = "Video" | "Phone" | "Onsite";
 
 export interface CompanyProfile {
@@ -8,6 +8,8 @@ export interface CompanyProfile {
   website: string;
   headquarters: string;
   description: string;
+  culture: string;
+  benefits: string;
   logo: string;
 }
 
@@ -15,6 +17,7 @@ export interface EmployerJob {
   id: string;
   title: string;
   location: string;
+  status: "Active" | "Paused" | "Closed";
   remotePolicy: "Onsite" | "Hybrid" | "Remote";
   salary: string;
   salaryMin: number;
@@ -64,6 +67,8 @@ export const companyProfile: CompanyProfile = {
   headquarters: "Austin, Texas",
   description:
     "CloudScale builds reliable infrastructure products for fast-growing tech teams and hires across product, platform, and growth.",
+  culture: "We value autonomy, continuous learning, and cross-functional collaboration. We believe the best ideas win regardless of title.",
+  benefits: "100% Healthcare Coverage, Unlimited PTO, 401(k) Matching, Remote Work Stipend, Annual Learning Budget.",
   logo: "https://images.unsplash.com/photo-1568952433726-3896e3881c65?w=120&h=120&fit=crop",
 };
 
@@ -72,6 +77,7 @@ export const employerJobs: EmployerJob[] = [
     id: "job-1",
     title: "Senior Frontend Engineer",
     location: "Remote",
+    status: "Active",
     remotePolicy: "Remote",
     salary: "$140k - $180k",
     salaryMin: 140,
@@ -88,6 +94,7 @@ export const employerJobs: EmployerJob[] = [
     id: "job-2",
     title: "Product Designer",
     location: "San Francisco, CA",
+    status: "Active",
     remotePolicy: "Hybrid",
     salary: "$110k - $145k",
     salaryMin: 110,
@@ -104,6 +111,7 @@ export const employerJobs: EmployerJob[] = [
     id: "job-3",
     title: "Growth Marketing Lead",
     location: "New York, NY",
+    status: "Paused",
     remotePolicy: "Onsite",
     salary: "$95k - $130k",
     salaryMin: 95,
@@ -127,7 +135,7 @@ export const employerApplicants: EmployerApplicant[] = [
     skills: ["React", "TypeScript", "Design Systems"],
     appliedFor: "Senior Frontend Engineer",
     match: 92,
-    status: "New",
+    status: "Applied",
     notes: "Strong portfolio and frontend architecture examples.",
   },
   {
@@ -138,7 +146,7 @@ export const employerApplicants: EmployerApplicant[] = [
     skills: ["Figma", "User Research", "Prototyping"],
     appliedFor: "Product Designer",
     match: 88,
-    status: "Reviewing",
+    status: "Reviewed",
     notes: "Great product thinking; schedule whiteboard case study.",
   },
   {
@@ -149,7 +157,7 @@ export const employerApplicants: EmployerApplicant[] = [
     skills: ["SEO", "Campaigns", "Analytics"],
     appliedFor: "Growth Marketing Lead",
     match: 81,
-    status: "Accepted",
+    status: "Hired",
     notes: "Excellent campaign metrics and leadership experience.",
   },
   {
