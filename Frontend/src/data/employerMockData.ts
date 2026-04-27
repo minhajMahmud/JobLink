@@ -15,8 +15,14 @@ export interface EmployerJob {
   id: string;
   title: string;
   location: string;
+  remotePolicy: "Onsite" | "Hybrid" | "Remote";
   salary: string;
+  salaryMin: number;
+  salaryMax: number;
   type: string;
+  level: "Entry" | "Mid" | "Senior" | "Lead";
+  requiredSkills: string[];
+  description: string;
   postedAt: string;
   applicants: number;
   featured: boolean;
@@ -31,6 +37,7 @@ export interface EmployerApplicant {
   appliedFor: string;
   match: number;
   status: ApplicantStatus;
+  notes?: string;
 }
 
 export interface EmployerInterview {
@@ -65,8 +72,14 @@ export const employerJobs: EmployerJob[] = [
     id: "job-1",
     title: "Senior Frontend Engineer",
     location: "Remote",
+    remotePolicy: "Remote",
     salary: "$140k - $180k",
+    salaryMin: 140,
+    salaryMax: 180,
     type: "Full-time",
+    level: "Senior",
+    requiredSkills: ["React", "TypeScript", "Design Systems"],
+    description: "Lead frontend architecture and mentor engineers across key customer surfaces.",
     postedAt: "2 days ago",
     applicants: 24,
     featured: true,
@@ -75,8 +88,14 @@ export const employerJobs: EmployerJob[] = [
     id: "job-2",
     title: "Product Designer",
     location: "San Francisco, CA",
+    remotePolicy: "Hybrid",
     salary: "$110k - $145k",
+    salaryMin: 110,
+    salaryMax: 145,
     type: "Full-time",
+    level: "Mid",
+    requiredSkills: ["Figma", "User Research", "Design Systems"],
+    description: "Design and validate high-impact user journeys across web and mobile.",
     postedAt: "4 days ago",
     applicants: 17,
     featured: false,
@@ -85,8 +104,14 @@ export const employerJobs: EmployerJob[] = [
     id: "job-3",
     title: "Growth Marketing Lead",
     location: "New York, NY",
+    remotePolicy: "Onsite",
     salary: "$95k - $130k",
+    salaryMin: 95,
+    salaryMax: 130,
     type: "Hybrid",
+    level: "Lead",
+    requiredSkills: ["Growth", "SEO", "Analytics"],
+    description: "Own pipeline growth strategies and collaborate tightly with product and sales.",
     postedAt: "1 week ago",
     applicants: 11,
     featured: false,
@@ -103,6 +128,7 @@ export const employerApplicants: EmployerApplicant[] = [
     appliedFor: "Senior Frontend Engineer",
     match: 92,
     status: "New",
+    notes: "Strong portfolio and frontend architecture examples.",
   },
   {
     id: "app-2",
@@ -113,6 +139,7 @@ export const employerApplicants: EmployerApplicant[] = [
     appliedFor: "Product Designer",
     match: 88,
     status: "Reviewing",
+    notes: "Great product thinking; schedule whiteboard case study.",
   },
   {
     id: "app-3",
@@ -123,6 +150,7 @@ export const employerApplicants: EmployerApplicant[] = [
     appliedFor: "Growth Marketing Lead",
     match: 81,
     status: "Accepted",
+    notes: "Excellent campaign metrics and leadership experience.",
   },
   {
     id: "app-4",
@@ -133,6 +161,7 @@ export const employerApplicants: EmployerApplicant[] = [
     appliedFor: "Senior Frontend Engineer",
     match: 72,
     status: "Rejected",
+    notes: "Solid profile but backend-heavy for this role.",
   },
 ];
 

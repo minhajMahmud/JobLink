@@ -6,11 +6,22 @@ export interface JobFilters {
   type: string;
   experienceLevel: string;
   salaryRange: [number, number];
+  location: string;
+  company: string;
+  remotePolicy: "All" | "Onsite" | "Hybrid" | "Remote";
+  industry: string;
+  companySize: string;
+  postedWithinDays: number;
+  visaSupportOnly: boolean;
+  urgentOnly: boolean;
+  minApplicants: number;
   skills: string[];
 }
 
 const typeOptions = ["All", "Full-time", "Part-time", "Remote", "Contract"];
 const experienceOptions = ["All", "Entry", "Mid", "Senior", "Lead"];
+const remoteOptions: Array<JobFilters["remotePolicy"]> = ["All", "Onsite", "Hybrid", "Remote"];
+const companySizeOptions = ["All", "1-50", "51-200", "201-1000", "1000+"];
 const skillOptions = ["React", "TypeScript", "Python", "SQL", "AWS", "Node.js", "Figma", "Kubernetes", "System design", "Team leadership"];
 
 interface JobFiltersProps {
@@ -25,6 +36,15 @@ export default function JobFiltersPanel({ filters, onChange }: JobFiltersProps) 
     filters.type !== "All" ? 1 : 0,
     filters.experienceLevel !== "All" ? 1 : 0,
     filters.salaryRange[0] > 0 || filters.salaryRange[1] < 300 ? 1 : 0,
+    filters.location ? 1 : 0,
+    filters.company ? 1 : 0,
+    filters.remotePolicy !== "All" ? 1 : 0,
+    filters.industry ? 1 : 0,
+    filters.companySize !== "All" ? 1 : 0,
+    filters.postedWithinDays < 30 ? 1 : 0,
+    filters.visaSupportOnly ? 1 : 0,
+    filters.urgentOnly ? 1 : 0,
+    filters.minApplicants > 0 ? 1 : 0,
     filters.skills.length > 0 ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
@@ -36,7 +56,21 @@ export default function JobFiltersPanel({ filters, onChange }: JobFiltersProps) 
   };
 
   const clearAll = () => {
-    onChange({ type: "All", experienceLevel: "All", salaryRange: [0, 300], skills: [] });
+    onChange({
+      type: "All",
+      experienceLevel: "All",
+      salaryRange: [0, 300],
+      location: "",
+      company: "",
+      remotePolicy: "All",
+      industry: "",
+      companySize: "All",
+      postedWithinDays: 30,
+      visaSupportOnly: false,
+      urgentOnly: false,
+      minApplicants: 0,
+      skills: [],
+    });
   };
 
   return (
@@ -99,6 +133,112 @@ export default function JobFiltersPanel({ filters, onChange }: JobFiltersProps) 
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                Location
+                <input
+                  value={filters.location}
+                  onChange={(event) => onChange({ ...filters, location: event.target.value })}
+                  placeholder="City, state, country"
+                  className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-xs font-normal"
+                />
+              </label>
+
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                Company
+                <input
+                  value={filters.company}
+                  onChange={(event) => onChange({ ...filters, company: event.target.value })}
+                  placeholder="Company name"
+                  className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-xs font-normal"
+                />
+              </label>
+
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                Industry
+                <input
+                  value={filters.industry}
+                  onChange={(event) => onChange({ ...filters, industry: event.target.value })}
+                  placeholder="SaaS, FinTech..."
+                  className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-xs font-normal"
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                Remote policy
+                <select
+                  value={filters.remotePolicy}
+                  onChange={(event) => onChange({ ...filters, remotePolicy: event.target.value as JobFilters["remotePolicy"] })}
+                  className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-xs font-normal"
+                >
+                  {remoteOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                Company size
+                <select
+                  value={filters.companySize}
+                  onChange={(event) => onChange({ ...filters, companySize: event.target.value })}
+                  className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-xs font-normal"
+                >
+                  {companySizeOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                Posted within {filters.postedWithinDays} days
+                <input
+                  type="range"
+                  min={1}
+                  max={30}
+                  value={filters.postedWithinDays}
+                  onChange={(event) => onChange({ ...filters, postedWithinDays: Number(event.target.value) })}
+                  className="mt-2 w-full accent-primary"
+                />
+              </label>
+
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                Min applicants: {filters.minApplicants}
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={filters.minApplicants}
+                  onChange={(event) => onChange({ ...filters, minApplicants: Number(event.target.value) })}
+                  className="mt-2 w-full accent-primary"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onChange({ ...filters, visaSupportOnly: !filters.visaSupportOnly })}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium ${filters.visaSupportOnly ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+              >
+                Visa support only
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ ...filters, urgentOnly: !filters.urgentOnly })}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium ${filters.urgentOnly ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+              >
+                Urgent hiring only
+              </button>
             </div>
 
             {/* Salary Range */}

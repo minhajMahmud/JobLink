@@ -1,13 +1,16 @@
 import { TrendingUp } from "lucide-react";
 
-const topics = [
-  { tag: "#TechHiring", posts: "2.4k posts" },
-  { tag: "#RemoteWork", posts: "1.8k posts" },
-  { tag: "#AIEngineering", posts: "3.1k posts" },
-  { tag: "#StartupLife", posts: "982 posts" },
-];
+interface TrendingTopic {
+  tag: string;
+  posts: string;
+}
 
-export default function TrendingTopics() {
+interface TrendingTopicsProps {
+  topics: TrendingTopic[];
+  onSelectTopic?: (tag: string) => void;
+}
+
+export default function TrendingTopics({ topics, onSelectTopic }: TrendingTopicsProps) {
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
       <div className="mb-3 flex items-center gap-2">
@@ -16,11 +19,17 @@ export default function TrendingTopics() {
       </div>
       <div className="space-y-2.5">
         {topics.map((topic) => (
-          <button key={topic.tag} className="block w-full text-left rounded-lg px-2 py-1.5 hover:bg-secondary transition-colors">
+          <button
+            key={topic.tag}
+            type="button"
+            onClick={() => onSelectTopic?.(topic.tag)}
+            className="block w-full text-left rounded-lg px-2 py-1.5 hover:bg-secondary transition-colors"
+          >
             <p className="text-sm font-medium text-primary">{topic.tag}</p>
             <p className="text-xs text-muted-foreground">{topic.posts}</p>
           </button>
         ))}
+        {topics.length === 0 && <p className="text-xs text-muted-foreground">No trending topics yet.</p>}
       </div>
     </div>
   );

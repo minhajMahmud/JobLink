@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Check, CheckAll, Trash2 } from "lucide-react";
+import { Check, CheckCheck, Trash2 } from "lucide-react";
 import { useNotifications, categoryMeta } from "@/features/notifications/context/NotificationsContext";
 import { Button } from "@/components/ui/button";
 
@@ -44,7 +44,7 @@ export default function NotificationsPage() {
                 size="sm"
                 className="gap-2"
               >
-                <CheckAll className="h-4 w-4" />
+                <CheckCheck className="h-4 w-4" />
                 Mark all as read
               </Button>
               <Button
