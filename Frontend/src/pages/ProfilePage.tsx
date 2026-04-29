@@ -6,7 +6,8 @@ import SkillTagger from "@/components/profile/SkillTagger";
 import ProfileViewTracker from "@/components/profile/ProfileViewTracker";
 import JobRecommendations from "@/components/profile/JobRecommendations";
 import ResumeBuilder from "@/components/profile/ResumeBuilder";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getCandidateProfile } from "@/features/profile/api/candidateApi";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,8 +49,25 @@ export default function ProfilePage() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isEditingUrl, setIsEditingUrl] = useState(false);
   const [customUrl, setCustomUrl] = useState("alexmorgan");
+  const [profileData, setProfileData] = useState<any>(null);
   const { logout } = useAuth();
   const userPosts = posts.slice(0, 2);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const response = await getCandidateProfile();
+        if (response.success && response.data) {
+          setProfileData(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to load profile:", error);
+      }
+    };
+    loadProfile();
+  }, []);
+
+  const displayUser = profileData ? { ...currentUser, name: profileData.name || currentUser.name, title: profileData.title || currentUser.title, bio: profileData.bio || currentUser.bio, location: profileData.location || "San Francisco, CA" } : currentUser;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -115,10 +133,10 @@ export default function ProfilePage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <h1 className="text-3xl sm:text-4xl font-bold font-display text-foreground tracking-tight">{currentUser.name}</h1>
+                        <h1 className="text-3xl sm:text-4xl font-bold font-display text-foreground tracking-tight">{displayUser.name}</h1>
                         <BadgeCheck className="h-7 w-7 text-blue-500 drop-shadow-sm" />
                       </div>
-                      <p className="text-lg text-foreground/80 mt-1 font-medium">{currentUser.title}</p>
+                      <p className="text-lg text-foreground/80 mt-1 font-medium">{displayUser.title}</p>
                       <div className="flex gap-2 mt-3">
                         {badges.map((badge, idx) => (
                           <motion.div 
@@ -220,8 +238,8 @@ export default function ProfilePage() {
 
               {/* Info Row */}
               <motion.div variants={itemVariants} className="mt-5 flex flex-wrap gap-3 text-sm text-foreground/80">
-                <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors border border-transparent hover:border-border"><Briefcase className="h-4 w-4 text-blue-500" />{currentUser.company}</span>
-                <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors border border-transparent hover:border-border"><MapPin className="h-4 w-4 text-red-500" />San Francisco, CA</span>
+                <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors border border-transparent hover:border-border"><Briefcase className="h-4 w-4 text-blue-500" />{displayUser.company}</span>
+                <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors border border-transparent hover:border-border"><MapPin className="h-4 w-4 text-red-500" />{displayUser.location}</span>
                 <a href="#" className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-blue-500/10 hover:text-blue-600 cursor-pointer transition-colors border border-transparent hover:border-blue-500/20"><Globe className="h-4 w-4 text-green-500" /> alexmorgan.dev</a>
               </motion.div>
 

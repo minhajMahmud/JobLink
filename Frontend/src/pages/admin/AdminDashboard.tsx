@@ -16,6 +16,7 @@ import RolePermissionsTab from "@/components/admin/RolePermissionsTab";
 import SpamDetectionTab from "@/components/admin/SpamDetectionTab";
 import AdminSidebar, { type AdminNavItem, type AdminStatItem } from "@/components/admin/AdminSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { adminService } from "@/modules/admin/services/adminService";
 
 const headerStats = [
   { label: "Total users", value: "12,480", icon: Users },
@@ -58,11 +59,17 @@ const contentByTab = {
 
 type AdminTab = keyof typeof contentByTab;
 
-function DashboardHome({ onNavigate }: { onNavigate: (tab: AdminTab) => void }) {
+function DashboardHome({
+  onNavigate,
+  summary,
+}: {
+  onNavigate: (tab: AdminTab) => void;
+  summary: { total_users: number; active_jobs: number; open_reports: number; moderation_actions: number } | null;
+}) {
   const summaryCards = [
-    { label: "Users", value: "12.4k", accent: "from-primary/10 to-primary/5" },
-    { label: "Jobs", value: "684", accent: "from-emerald-500/10 to-emerald-500/5" },
-    { label: "Reports", value: "14 open", accent: "from-amber-500/10 to-amber-500/5" },
+    { label: "Users", value: summary ? summary.total_users.toLocaleString() : "12.4k", accent: "from-primary/10 to-primary/5" },
+    { label: "Jobs", value: summary ? summary.active_jobs.toLocaleString() : "684", accent: "from-emerald-500/10 to-emerald-500/5" },
+    { label: "Reports", value: summary ? `${summary.open_reports} open` : "14 open", accent: "from-amber-500/10 to-amber-500/5" },
   ];
 
   return (
@@ -138,16 +145,30 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [summary, setSummary] = useState<{ total_users: number; active_jobs: number; open_reports: number; moderation_actions: number } | null>(null);
 
   const stats = headerStats as AdminStatItem[];
 
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await adminService.getDashboardSummary();
+        setSummary(data);
+      } catch {
+        setSummary(null);
+      }
+    };
+
+    void load();
+  }, []);
+
   const activeContent = useMemo(() => {
     if (activeTab === "dashboard") {
-      return <DashboardHome onNavigate={setActiveTab} />;
+      return <DashboardHome onNavigate={setActiveTab} summary={summary} />;
     }
 
     return contentByTab[activeTab];
-  }, [activeTab]);
+  }, [activeTab, summary]);
 
   useEffect(() => {
     if (isMobile) {

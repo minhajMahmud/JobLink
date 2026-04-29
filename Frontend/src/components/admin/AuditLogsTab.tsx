@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { auditLogs, type AuditLog } from "@/data/adminMockData";
+import { adminService } from "@/modules/admin/services/adminService";
+import type { AuditLogRecord } from "@/modules/admin/types";
+import { useEffect } from "react";
 
 const categoryIcons: Record<AuditLog["category"], typeof Activity> = {
   auth: ShieldAlert,
@@ -22,19 +25,38 @@ const categoryStyles: Record<AuditLog["category"], string> = {
 export default function AuditLogsTab() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [logs, setLogs] = useState<AuditLogRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const response = await adminService.getAuditLogs({ page: 1, limit: 50, query: search, category });
+        setLogs(response.data);
+      } catch {
+        setLogs(
+          auditLogs.map((log) => ({
+            id: log.id,
+            actor: log.actor,
+            action: log.action,
+            target: log.target,
+            timestamp: log.timestamp,
+            ipAddress: log.ipAddress,
+            category: log.category,
+          })),
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, [search, category]);
 
   const visible = useMemo(
-    () =>
-      auditLogs.filter((l) => {
-        const matchesSearch =
-          !search ||
-          l.actor.toLowerCase().includes(search.toLowerCase()) ||
-          l.action.toLowerCase().includes(search.toLowerCase()) ||
-          l.target.toLowerCase().includes(search.toLowerCase());
-        const matchesCategory = category === "all" || l.category === category;
-        return matchesSearch && matchesCategory;
-      }),
-    [search, category],
+    () => logs,
+    [logs],
   );
 
   return (
@@ -67,6 +89,7 @@ export default function AuditLogsTab() {
       </div>
 
       <div className="rounded-2xl border border-border bg-card">
+        {loading && <div className="p-6 text-sm text-muted-foreground">Loading audit logs...</div>}
         <ol className="divide-y divide-border">
           {visible.map((log) => {
             const Icon = categoryIcons[log.category];
@@ -88,7 +111,7 @@ export default function AuditLogsTab() {
               </li>
             );
           })}
-          {visible.length === 0 && (
+          {!loading && visible.length === 0 && (
             <li className="p-10 text-center text-sm text-muted-foreground">No log entries match these filters.</li>
           )}
         </ol>

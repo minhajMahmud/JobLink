@@ -73,6 +73,25 @@ export interface AdminAnalyticsResponse {
   user_growth: Array<{ label: string; users: number; employers: number; jobs: number }>;
 }
 
+export interface AdminDashboardSummary {
+  total_users: number;
+  active_jobs: number;
+  open_reports: number;
+  moderation_actions: number;
+}
+
+export interface AuditLogRecord {
+  id: string;
+  actor: string;
+  action: string;
+  target: string;
+  timestamp: string;
+  ipAddress: string;
+  category: "auth" | "moderation" | "user" | "system";
+}
+
+export interface AdminDashboardSummaryResponse extends AdminDashboardSummary {}
+
 export interface SpamAlertRecord {
   entity_type: "post" | "job" | "user";
   entity_id: string;
@@ -94,4 +113,5 @@ export interface AdminQueryParams {
   status?: string;
   role?: string;
   priority?: string;
+  category?: string;
 }

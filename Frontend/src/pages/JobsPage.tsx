@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { BellRing, BookmarkCheck, Search, TrendingUp, Sparkles, X, Upload, FileText } from "lucide-react";
-import { jobs, currentUser, calculateSmartMatchScore, type Application, type Job } from "@/data/mockData";
+import { currentUser, calculateSmartMatchScore, type Application, type Job } from "@/data/mockData";
 import JobCard from "@/components/jobs/JobCard";
 import JobFiltersPanel, { JobFilters } from "@/components/jobs/JobFilters";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import * as candidateApi from "@/features/profile/api/candidateApi";
 
 interface JobAlert {
   id: string;
@@ -39,6 +40,30 @@ export default function JobsPage() {
   const [alerts, setAlerts] = useState<JobAlert[]>([]);
   const [activeApplyJob, setActiveApplyJob] = useState<Job | null>(null);
   const [coverLetter, setCoverLetter] = useState("");
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch jobs from backend
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await candidateApi.getJobs();
+        const jobsData = Array.isArray(response) ? response : response.data || [];
+        setJobs(jobsData);
+      } catch (err) {
+        console.error("Failed to fetch jobs:", err);
+        setError("Failed to load jobs. Please try again.");
+        setJobs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobs();
+  }, []);
 
   const filtered = useMemo(() => {
     return jobs
@@ -99,7 +124,7 @@ export default function JobsPage() {
     if (job) setActiveApplyJob(job);
   };
 
-  const submitApplication = () => {
+  const submitApplication = async () => {
     if (!activeApplyJob) return;
 
     if (!SAVED_RESUME_NAME) {
@@ -107,29 +132,19 @@ export default function JobsPage() {
       return;
     }
 
-    const existing = localStorage.getItem(APPLICATIONS_STORAGE_KEY);
-    const parsed: Application[] = existing ? JSON.parse(existing) as Application[] : [];
+    try {
+      await candidateApi.applyToJob({
+        jobId: activeApplyJob.id,
+        coverLetter: coverLetter,
+      });
 
-    if (parsed.some((entry) => entry.jobId === activeApplyJob.id)) {
-      toast.info(`You already applied for ${activeApplyJob.title}.`);
+      toast.success(`Successfully applied to ${activeApplyJob.company}!`);
       setActiveApplyJob(null);
-      return;
+      setCoverLetter("");
+    } catch (err) {
+      console.error("Failed to apply:", err);
+      toast.error("Failed to submit application. Please try again.");
     }
-
-    const nextEntry: Application = {
-      id: `app-${Date.now()}`,
-      jobId: activeApplyJob.id,
-      job: activeApplyJob,
-      appliedAt: "Just now",
-      status: "Applied",
-      statusHistory: [{ status: "Applied", date: "Just now" }],
-    };
-
-    localStorage.setItem(APPLICATIONS_STORAGE_KEY, JSON.stringify([nextEntry, ...parsed]));
-
-    toast.success(`Successfully applied to ${activeApplyJob.company}!`);
-    setActiveApplyJob(null);
-    setCoverLetter("");
   };
 
   const toggleBookmark = (jobId: string) => {
@@ -157,7 +172,7 @@ export default function JobsPage() {
         <div>
           <h1 className="text-2xl font-bold font-display text-foreground">Find Your Next Role</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {jobs.length} open positions · {filtered.length} matching your filters
+            {loading ? "Loading..." : `${jobs.length} open positions`} · {filtered.length} matching your filters
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             Smart matching uses skills, experience, remote preference, and urgency signals (0-100%).
@@ -250,7 +265,16 @@ export default function JobsPage() {
 
       {/* Job List */}
       <div className="space-y-4">
-        {filtered.length > 0 ? (
+        {error && (
+          <div className="rounded-2xl border border-destructive/50 bg-destructive/10 p-4 text-center">
+            <p className="text-sm text-destructive">{error}</p>
+          </div>
+        )}
+        {loading ? (
+          <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-card">
+            <p className="text-sm text-muted-foreground">Loading jobs...</p>
+          </div>
+        ) : filtered.length > 0 ? (
           filtered.map((job) => (
             <JobCard
               key={job.id}

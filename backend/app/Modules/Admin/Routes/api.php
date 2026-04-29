@@ -25,6 +25,7 @@ return [
 
         // Analytics
         ['GET', '/analytics', 'AdminController@getAnalytics'],
+        ['GET', '/summary', 'AdminController@getSummary'],
 
         // Report handling
         ['GET', '/reports', 'AdminController@getReports'],
@@ -32,6 +33,10 @@ return [
 
         // Spam detection
         ['GET', '/spam-alerts', 'AdminController@getSpamAlerts'],
+
+        // Audit + RBAC management
+        ['GET', '/audit-logs', 'AdminController@getAuditLogs'],
+        ['PATCH', '/rbac', 'AdminController@updateRbacMatrix'],
 
         // RBAC
         ['GET', '/rbac', 'AdminController@getRbacMatrix'],

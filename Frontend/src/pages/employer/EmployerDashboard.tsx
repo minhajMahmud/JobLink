@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getCompanyProfile, updateCompanyProfile, getJobs, createJob as createJobApi, updateJobStatus as updateJobStatusApi, toggleJobFeatured as toggleJobFeaturedApi, deleteJob as deleteJobApi, getApplicants, updateApplicantStatus as updateApplicantStatusApi, updateApplicantNotes as updateApplicantNotesApi, getInterviews, scheduleInterview as scheduleInterviewApi, getPosts, createPost as createPostApi } from "@/features/employer/api/employerApi";
 import {
   BadgeCheck,
   Briefcase,
@@ -113,6 +114,29 @@ export default function EmployerDashboard() {
   const [applicants, setApplicants] = useState(initialApplicants);
   const [interviews, setInterviews] = useState(initialInterviews);
   const [posts, setPosts] = useState(companyPosts);
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const [companyRes, jobsRes, applicantsRes, interviewsRes, postsRes] = await Promise.all([
+          getCompanyProfile().catch(() => null),
+          getJobs().catch(() => null),
+          getApplicants().catch(() => null),
+          getInterviews().catch(() => null),
+          getPosts().catch(() => null),
+        ]);
+
+        if (companyRes?.data) setCompanyProfile((prev) => ({ ...prev, ...companyRes.data }));
+        if (jobsRes?.data && jobsRes.data.length > 0) setJobs(jobsRes.data);
+        if (applicantsRes?.data && applicantsRes.data.length > 0) setApplicants(applicantsRes.data);
+        if (interviewsRes?.data && interviewsRes.data.length > 0) setInterviews(interviewsRes.data);
+        if (postsRes?.data && postsRes.data.length > 0) setPosts(postsRes.data);
+      } catch (e) {
+        console.error("Dashboard failed to load data");
+      }
+    };
+    loadDashboardData();
+  }, []);
   const [candidateSearch, setCandidateSearch] = useState("");
   const [candidateJob, setCandidateJob] = useState("All");
   const [candidateSkill, setCandidateSkill] = useState("");
@@ -144,96 +168,123 @@ export default function EmployerDashboard() {
   const acceptedApplicants = applicants.filter((applicant) => applicant.status === "Hired").length;
   const conversionRate = applicants.length ? Math.round((acceptedApplicants / applicants.length) * 100) : 0;
 
-  const createJob = () => {
+  const handleSaveCompanyProfile = async () => {
+    try {
+      await updateCompanyProfile(companyProfile);
+      // Optional: success toast
+    } catch (error) {
+      console.error("Failed to save profile", error);
+    }
+  };
+
+  const createJob = async () => {
     if (!newJob.title.trim() || !newJob.location.trim()) return;
 
-    const salaryMin = Number(newJob.salaryMin || 0);
-    const salaryMax = Number(newJob.salaryMax || 0);
+    try {
+      const result = await createJobApi(newJob);
+      if (result.success) {
+        const salaryMin = Number(newJob.salaryMin || 0);
+        const salaryMax = Number(newJob.salaryMax || 0);
+        setJobs((current) => [
+          {
+            id: result.id || `job-${Date.now()}`,
+            title: newJob.title,
+            location: newJob.location,
+            status: "Active",
+            remotePolicy: newJob.remotePolicy,
+            salary: salaryMin && salaryMax ? `$${salaryMin}k - $${salaryMax}k` : "Negotiable",
+            salaryMin,
+            salaryMax,
+            type: newJob.type,
+            level: newJob.level,
+            requiredSkills: newJob.requiredSkills.split(",").map((s) => s.trim()).filter(Boolean),
+            description: newJob.description,
+            postedAt: "Just now",
+            applicants: 0,
+            featured: false,
+          },
+          ...current,
+        ]);
 
-    setJobs((current) => [
-      {
-        id: `job-${Date.now()}`,
-        title: newJob.title,
-        location: newJob.location,
-        status: "Active",
-        remotePolicy: newJob.remotePolicy,
-        salary: salaryMin && salaryMax ? `$${salaryMin}k - $${salaryMax}k` : "Negotiable",
-        salaryMin,
-        salaryMax,
-        type: newJob.type,
-        level: newJob.level,
-        requiredSkills: newJob.requiredSkills.split(",").map((s) => s.trim()).filter(Boolean),
-        description: newJob.description,
-        postedAt: "Just now",
-        applicants: 0,
-        featured: false,
-      },
-      ...current,
-    ]);
-
-    setNewJob({
-      title: "",
-      location: "",
-      remotePolicy: "Hybrid",
-      salaryMin: "",
-      salaryMax: "",
-      type: "Full-time",
-      level: "Mid",
-      requiredSkills: "",
-      description: "",
-    });
+        setNewJob({
+          title: "", location: "", remotePolicy: "Hybrid", salaryMin: "", salaryMax: "", type: "Full-time", level: "Mid", requiredSkills: "", description: "",
+        });
+      }
+    } catch (e) {
+      console.error("Failed to create job", e);
+    }
   };
 
-  const toggleFeatured = (jobId: string) => {
-    setJobs((current) => current.map((job) => (job.id === jobId ? { ...job, featured: !job.featured } : job)));
+  const toggleFeatured = async (jobId: string) => {
+    try {
+      await toggleJobFeaturedApi(jobId);
+      setJobs((current) => current.map((job) => (job.id === jobId ? { ...job, featured: !job.featured } : job)));
+    } catch (e) {}
   };
 
-  const updateJobStatus = (jobId: string, status: "Active" | "Paused" | "Closed") => {
-    setJobs((current) => current.map((job) => (job.id === jobId ? { ...job, status } : job)));
+  const updateJobStatus = async (jobId: string, status: "Active" | "Paused" | "Closed") => {
+    try {
+      await updateJobStatusApi(jobId, status);
+      setJobs((current) => current.map((job) => (job.id === jobId ? { ...job, status } : job)));
+    } catch (e) {}
   };
 
-  const removeJob = (jobId: string) => {
-    setJobs((current) => current.filter((job) => job.id !== jobId));
+  const removeJob = async (jobId: string) => {
+    try {
+      await deleteJobApi(jobId);
+      setJobs((current) => current.filter((job) => job.id !== jobId));
+    } catch (e) {}
   };
 
-  const updateApplicantStatus = (applicantId: string, status: ApplicantStatus) => {
-    setApplicants((current) => current.map((applicant) => (applicant.id === applicantId ? { ...applicant, status } : applicant)));
+  const updateApplicantStatus = async (applicantId: string, status: ApplicantStatus) => {
+    try {
+      await updateApplicantStatusApi(applicantId, status);
+      setApplicants((current) => current.map((applicant) => (applicant.id === applicantId ? { ...applicant, status } : applicant)));
+    } catch (e) {}
   };
 
-  const updateApplicantNotes = (applicantId: string, notes: string) => {
-    setApplicants((current) => current.map((applicant) => (applicant.id === applicantId ? { ...applicant, notes } : applicant)));
+  const updateApplicantNotes = async (applicantId: string, notes: string) => {
+    try {
+      await updateApplicantNotesApi(applicantId, notes);
+      setApplicants((current) => current.map((applicant) => (applicant.id === applicantId ? { ...applicant, notes } : applicant)));
+    } catch (e) {}
   };
 
-  const scheduleInterview = () => {
+  const scheduleInterview = async () => {
     if (!newInterview.candidate.trim() || !newInterview.role.trim() || !newInterview.date || !newInterview.time) return;
 
-    setInterviews((current) => [
-      {
-        id: `interview-${Date.now()}`,
-        candidate: newInterview.candidate,
-        role: newInterview.role,
-        date: newInterview.date,
-        time: newInterview.time,
-        mode: newInterview.mode,
-      },
-      ...current,
-    ]);
-
-    setNewInterview({ candidate: "", role: "", date: "", time: "", mode: "Video" });
+    try {
+      await scheduleInterviewApi(newInterview);
+      setInterviews((current) => [
+        {
+          id: `interview-${Date.now()}`,
+          candidate: newInterview.candidate,
+          role: newInterview.role,
+          date: newInterview.date,
+          time: newInterview.time,
+          mode: newInterview.mode,
+        },
+        ...current,
+      ]);
+      setNewInterview({ candidate: "", role: "", date: "", time: "", mode: "Video" });
+    } catch (e) {}
   };
 
-  const publishPost = () => {
+  const publishPost = async () => {
     if (!newPost.title.trim() || !newPost.body.trim()) return;
 
-    const entry: CompanyPost = {
-      id: `post-${Date.now()}`,
-      title: newPost.title,
-      body: newPost.body,
-      createdAt: "Just now",
-    };
+    try {
+      await createPostApi(newPost);
+      const entry: CompanyPost = {
+        id: `post-${Date.now()}`,
+        title: newPost.title,
+        body: newPost.body,
+        createdAt: "Just now",
+      };
 
-    setPosts((current) => [entry, ...current]);
-    setNewPost({ title: "", body: "" });
+      setPosts((current) => [entry, ...current]);
+      setNewPost({ title: "", body: "" });
+    } catch (e) {}
   };
 
   const darkModeEnabled = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -515,6 +566,7 @@ export default function EmployerDashboard() {
                     </button>
                     <button
                       type="button"
+                      onClick={handleSaveCompanyProfile}
                       className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                     >
                       <Save className="h-4 w-4" />

@@ -1,10 +1,12 @@
 import axios from "axios";
 import type {
   AdminAnalyticsResponse,
+  AdminDashboardSummaryResponse,
   AdminEmployerRecord,
   AdminQueryParams,
   AdminReportRecord,
   AdminUserRecord,
+  AuditLogRecord,
   ModerationJobRecord,
   ModerationPostRecord,
   PaginatedResponse,
@@ -34,6 +36,7 @@ const toParams = (params?: AdminQueryParams) => ({
   status: params?.status,
   role: params?.role,
   priority: params?.priority,
+  category: params?.category,
 });
 
 export const adminService = {
@@ -95,6 +98,11 @@ export const adminService = {
     return data;
   },
 
+  async getDashboardSummary(): Promise<AdminDashboardSummaryResponse> {
+    const { data } = await api.get<AdminDashboardSummaryResponse>("/admin/summary");
+    return data;
+  },
+
   async getReports(params?: AdminQueryParams): Promise<PaginatedResponse<AdminReportRecord>> {
     const { data } = await api.get<PaginatedResponse<AdminReportRecord>>("/admin/reports", { params: toParams(params) });
     return data;
@@ -113,8 +121,21 @@ export const adminService = {
     return data;
   },
 
+  async getAuditLogs(params?: AdminQueryParams): Promise<PaginatedResponse<AuditLogRecord>> {
+    const { data } = await api.get<PaginatedResponse<AuditLogRecord>>("/admin/audit-logs", { params: toParams(params) });
+    return data;
+  },
+
   async getRbacMatrix(): Promise<RbacMatrixResponse> {
     const { data } = await api.get<RbacMatrixResponse>("/admin/rbac");
+    return data;
+  },
+
+  async updateRbacRole(role: string, permissions: string[]): Promise<{ role: string; permissions: string[]; updated: boolean }> {
+    const { data } = await api.patch<{ role: string; permissions: string[]; updated: boolean }>("/admin/rbac", {
+      role,
+      permissions,
+    });
     return data;
   },
 };

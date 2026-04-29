@@ -186,6 +186,15 @@ final class AdminController
         return Response::json($this->service->getAnalytics($range), 200);
     }
 
+    public function getSummary(Request $request): Response
+    {
+        if ($unauthorized = $this->ensureAdmin($request)) {
+            return $unauthorized;
+        }
+
+        return Response::json($this->service->getSummary(), 200);
+    }
+
     public function getReports(Request $request): Response
     {
         if ($unauthorized = $this->ensureAdmin($request)) {
@@ -223,6 +232,35 @@ final class AdminController
         }
 
         return Response::json($this->service->getSpamAlerts(), 200);
+    }
+
+    public function getAuditLogs(Request $request): Response
+    {
+        if ($unauthorized = $this->ensureAdmin($request)) {
+            return $unauthorized;
+        }
+
+        $page = (int)($request->query('page') ?? 1);
+        $limit = (int)($request->query('limit') ?? 20);
+
+        return Response::json(
+            $this->service->getAuditLogs([
+                'query' => $request->query('query'),
+                'category' => $request->query('category'),
+            ], $page, $limit),
+            200
+        );
+    }
+
+    public function updateRbacMatrix(Request $request): Response
+    {
+        if ($unauthorized = $this->ensureAdmin($request)) {
+            return $unauthorized;
+        }
+
+        $payload = json_decode($request->getBody(), true) ?? [];
+
+        return Response::json($this->service->updateRbacMatrix($payload, $this->actorContext($request)), 200);
     }
 
     public function getRbacMatrix(Request $request): Response

@@ -3,5 +3,15 @@
 declare(strict_types=1);
 
 return [
-    'GET /users' => [\App\Modules\User\Controllers\UserController::class, 'index'],
+    'prefix' => '/user',
+    'middleware' => ['auth'],
+    'routes' => [
+        ['GET', '/profile', 'CandidateController@getProfile'],
+        ['PUT', '/profile', 'CandidateController@saveProfile'],
+        ['GET', '/resume', 'CandidateController@getResume'],
+        ['PUT', '/resume', 'CandidateController@saveResume'],
+        ['GET', '/applications', 'CandidateController@getApplications'],
+        ['POST', '/applications', 'CandidateController@applyToJob'],
+        ['PATCH', '/applications/{id}/status', 'CandidateController@updateApplicationStatus'],
+    ],
 ];

@@ -19,7 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { currentUser } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { getCandidateResume, updateCandidateResume } from "@/features/profile/api/candidateApi";
 
 type Theme = "classic" | "modern" | "creative" | "developer" | "executive";
 
@@ -110,7 +111,70 @@ export default function ResumeBuilder() {
     }
   ]);
 
+  const [isLoading, setIsLoading] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchResume = async () => {
+      try {
+        const response = await getCandidateResume();
+        if (response.success && response.data) {
+          const { data } = response;
+          setTheme(data.theme || "executive");
+          setIncludeAvatar(Boolean(data.include_avatar));
+          
+          if (data.personal_info) {
+            setName(data.personal_info.name || currentUser.name);
+            setTitle(data.personal_info.title || currentUser.title);
+            setEmail(data.personal_info.email || "alex.morgan@email.com");
+            setPhone(data.personal_info.phone || "+1 (555) 123-4567");
+            setAddress(data.personal_info.address || "San Francisco, CA");
+            setLinkedin(data.personal_info.linkedin || "linkedin.com/in/alexmorgan");
+            setGithub(data.personal_info.github || "github.com/alexmorgan");
+          }
+          
+          if (data.summary) setSummary(data.summary);
+          if (data.skills) setSkills(data.skills);
+          if (data.languages) setLanguages(data.languages);
+          if (data.headers) setHeaders({ ...headers, ...data.headers });
+          if (data.sections && Array.isArray(data.sections) && data.sections.length > 0) {
+            setSections(data.sections);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch resume:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchResume();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      toast({ title: "Saving Resume...", description: "Please wait..." });
+      const personalInfo = { name, title, email, phone, address, linkedin, github };
+      const payload = {
+        theme,
+        include_avatar: includeAvatar,
+        personal_info: personalInfo,
+        summary,
+        skills,
+        languages,
+        headers,
+        sections
+      };
+      
+      const response = await updateCandidateResume(payload);
+      if (response.success) {
+        toast({ title: "Resume Saved!", description: "Your resume configuration has been successfully saved." });
+      } else {
+        toast({ title: "Error", description: response.message || "Failed to save resume.", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save resume.", variant: "destructive" });
+    }
+  };
 
   const addSection = (type: ResumeSection["type"]) => {
     setSections([...sections, { id: Date.now().toString(), type, title: "", subtitle: "", period: "", description: "", link: "" }]);
@@ -618,6 +682,9 @@ export default function ResumeBuilder() {
         <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">
           <button onClick={handleAIImprove} className="shrink-0 flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-500/20 transition-all">
             <Bot className="h-4 w-4" /> AI Enhance
+          </button>
+          <button onClick={handleSave} className="shrink-0 flex items-center gap-1.5 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-semibold text-green-600 hover:bg-green-500/20 transition-all">
+            <CheckCircle2 className="h-4 w-4" /> Save Profile
           </button>
           <button onClick={handleDownloadDocx} className="shrink-0 flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-bold text-white hover:bg-indigo-700 shadow-md transition-all">
             <FileDown className="h-4 w-4" /> Export DOCX

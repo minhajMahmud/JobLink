@@ -398,6 +398,36 @@ final class AdminRepository
     /**
      * @return array<string, mixed>
      */
+    public function getSummary(): array
+    {
+        if ($this->pdo instanceof PDO) {
+            $totalUsers = (int)($this->scalar('SELECT COUNT(DISTINCT user_id) FROM admin_user_roles') ?? 0);
+            $totalEmployers = (int)($this->scalar('SELECT COUNT(DISTINCT moderated_by) FROM moderation_jobs WHERE moderated_by IS NOT NULL') ?? 0);
+            $activeJobs = (int)($this->scalar("SELECT COUNT(*) FROM moderation_jobs WHERE status = 'Approved'") ?? 0);
+            $openReports = (int)($this->scalar("SELECT COUNT(*) FROM admin_reports WHERE status IN ('Open', 'Investigating')") ?? 0);
+            $moderationActions = (int)($this->scalar("SELECT COUNT(*) FROM admin_audit_logs WHERE action_code LIKE '%.moderated' OR action_code LIKE 'users.%' OR action_code LIKE 'employers.%'") ?? 0);
+
+            return [
+                'total_users' => $totalUsers,
+                'active_jobs' => $activeJobs,
+                'open_reports' => $openReports,
+                'moderation_actions' => $moderationActions,
+                'total_employers' => $totalEmployers,
+            ];
+        }
+
+        return [
+            'total_users' => 12480,
+            'active_jobs' => 684,
+            'open_reports' => 14,
+            'moderation_actions' => 88,
+            'total_employers' => 358,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function getRbacMatrix(): array
     {
         if ($this->pdo instanceof PDO) {
@@ -454,6 +484,148 @@ final class AdminRepository
                 'admin' => ['users.view', 'users.manage', 'employers.verify', 'posts.moderate', 'jobs.moderate', 'reports.resolve', 'analytics.view'],
             ],
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function getAuditLogs(array $filters, int $page, int $limit): array
+    {
+        if ($this->pdo instanceof PDO) {
+            $query = strtolower(trim((string)($filters['query'] ?? '')));
+            $category = strtolower(trim((string)($filters['category'] ?? '')));
+
+            $where = [];
+            $params = [];
+
+            if ($query !== '') {
+                $where[] = '(LOWER(actor_user_id) LIKE :query OR LOWER(action_code) LIKE :query OR LOWER(entity_type) LIKE :query OR LOWER(COALESCE(entity_id, "")) LIKE :query)';
+                $params['query'] = '%' . $query . '%';
+            }
+
+            if ($category !== '' && $category !== 'all') {
+                $categorySql = match ($category) {
+                    'auth' => "action_code LIKE 'auth.%'",
+                    'moderation' => "(action_code LIKE 'posts.%' OR action_code LIKE 'jobs.%' OR action_code LIKE 'reports.%')",
+                    'user' => "(action_code LIKE 'users.%' OR action_code LIKE 'employers.%')",
+                    'system' => "action_code LIKE 'system.%' OR action_code LIKE 'rbac.%'",
+                    default => '1=1',
+                };
+
+                if ($categorySql !== '1=1') {
+                    $where[] = $categorySql;
+                }
+            }
+
+            $sql = 'SELECT id, actor_user_id, actor_role, action_code, entity_type, entity_id, payload, ip_address, user_agent, created_at FROM admin_audit_logs';
+            if ($where !== []) {
+                $sql .= ' WHERE ' . implode(' AND ', $where);
+            }
+            $sql .= ' ORDER BY created_at DESC';
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll() ?: [];
+
+            $records = array_map(static function (array $row): array {
+                $actionCode = (string)($row['action_code'] ?? '');
+                $entityType = (string)($row['entity_type'] ?? 'system');
+                $entityId = (string)($row['entity_id'] ?? '');
+                $payload = json_decode((string)($row['payload'] ?? '{}'), true);
+
+                return [
+                    'id' => (string)($row['id'] ?? ''),
+                    'actor' => (string)($row['actor_user_id'] ?? 'system'),
+                    'action' => self::humanizeActionCode($actionCode),
+                    'target' => self::humanizeAuditTarget($entityType, $entityId, is_array($payload) ? $payload : []),
+                    'timestamp' => (string)($row['created_at'] ?? ''),
+                    'ipAddress' => (string)($row['ip_address'] ?? '—'),
+                    'category' => self::auditCategoryFromAction($actionCode),
+                ];
+            }, $rows);
+
+            return $this->paginate($records, $page, $limit);
+        }
+
+        return $this->paginate([
+            ['id' => 'a-1', 'actor' => 'admin@nexus.demo', 'action' => 'Suspended user account', 'target' => 'marcus.lee@spam.example', 'timestamp' => '2025-04-18 14:22 UTC', 'ipAddress' => '192.168.1.42', 'category' => 'moderation'],
+            ['id' => 'a-2', 'actor' => 'admin@nexus.demo', 'action' => 'Removed flagged job post', 'target' => 'Earn $5000/week from home', 'timestamp' => '2025-04-18 13:50 UTC', 'ipAddress' => '192.168.1.42', 'category' => 'moderation'],
+            ['id' => 'a-3', 'actor' => 'system', 'action' => 'Auto-flagged post (spam score 96)', 'target' => 'Post p-2 by Marcus Lee', 'timestamp' => '2025-04-18 09:14 UTC', 'ipAddress' => '—', 'category' => 'system'],
+            ['id' => 'a-4', 'actor' => 'admin@nexus.demo', 'action' => 'Verified employer', 'target' => 'BrightLabs', 'timestamp' => '2025-04-17 18:02 UTC', 'ipAddress' => '192.168.1.42', 'category' => 'user'],
+            ['id' => 'a-5', 'actor' => 'admin@nexus.demo', 'action' => 'Updated role permissions', 'target' => "admin role — added 'feature_jobs'", 'timestamp' => '2025-04-17 11:30 UTC', 'ipAddress' => '192.168.1.42', 'category' => 'system'],
+            ['id' => 'a-6', 'actor' => 'admin@nexus.demo', 'action' => 'Login successful', 'target' => 'Admin panel', 'timestamp' => '2025-04-17 09:00 UTC', 'ipAddress' => '192.168.1.42', 'category' => 'auth'],
+        ], $page, $limit);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    public function updateRbacMatrix(array $payload, array $actor = []): array
+    {
+        $role = strtolower(trim((string)($payload['role'] ?? 'admin')));
+        $permissions = $payload['permissions'] ?? [];
+        if (!is_array($permissions)) {
+            $permissions = [];
+        }
+
+        $normalizedPermissions = array_values(array_unique(array_filter(array_map(
+            static fn ($permission): string => trim((string)$permission),
+            $permissions
+        ))));
+
+        if ($this->pdo instanceof PDO) {
+            $roleId = $this->getRoleIdByName($role);
+            if ($roleId !== null) {
+                $existing = $this->pdo->prepare('SELECT ap.id, ap.code FROM admin_permissions ap ORDER BY ap.code');
+                $existing->execute();
+                $permissionRows = $existing->fetchAll() ?: [];
+
+                $permissionMap = [];
+                foreach ($permissionRows as $row) {
+                    $code = (string)($row['code'] ?? '');
+                    if ($code !== '') {
+                        $permissionMap[$code] = (string)($row['id'] ?? '');
+                    }
+                }
+
+                $this->pdo->beginTransaction();
+                try {
+                    $delete = $this->pdo->prepare('DELETE FROM admin_role_permissions WHERE role_id = :role_id');
+                    $delete->execute(['role_id' => $roleId]);
+
+                    $insert = $this->pdo->prepare('INSERT INTO admin_role_permissions (id, role_id, permission_id) VALUES (:id, :role_id, :permission_id)');
+                    foreach ($normalizedPermissions as $permissionCode) {
+                        if (!isset($permissionMap[$permissionCode])) {
+                            continue;
+                        }
+
+                        $insert->execute([
+                            'id' => $this->generateUuidV4(),
+                            'role_id' => $roleId,
+                            'permission_id' => $permissionMap[$permissionCode],
+                        ]);
+                    }
+
+                    $this->pdo->commit();
+                } catch (Throwable) {
+                    if ($this->pdo->inTransaction()) {
+                        $this->pdo->rollBack();
+                    }
+                }
+            }
+        }
+
+        $result = [
+            'role' => $role,
+            'permissions' => $normalizedPermissions,
+            'updated_at' => date(DATE_ATOM),
+        ];
+
+        $this->logAudit('rbac.updated', 'rbac', $role, $result, $actor);
+
+        return $result;
     }
 
     /**
@@ -692,6 +864,73 @@ final class AdminRepository
         $value = $this->pdo->query($sql)?->fetchColumn();
 
         return $value === false ? null : $value;
+    }
+
+    private function getRoleIdByName(string $roleName): ?string
+    {
+        if (!$this->pdo instanceof PDO) {
+            return null;
+        }
+
+        $stmt = $this->pdo->prepare('SELECT id FROM admin_roles WHERE LOWER(name) = :name LIMIT 1');
+        $stmt->execute(['name' => strtolower(trim($roleName))]);
+        $roleId = $stmt->fetchColumn();
+
+        return $roleId === false ? null : (string)$roleId;
+    }
+
+    private static function auditCategoryFromAction(string $actionCode): string
+    {
+        return match (true) {
+            str_starts_with($actionCode, 'auth.') => 'auth',
+            str_starts_with($actionCode, 'users.') || str_starts_with($actionCode, 'employers.') => 'user',
+            str_starts_with($actionCode, 'posts.') || str_starts_with($actionCode, 'jobs.') || str_starts_with($actionCode, 'reports.') => 'moderation',
+            default => 'system',
+        };
+    }
+
+    private static function humanizeActionCode(string $actionCode): string
+    {
+        $suffix = $actionCode !== '' ? trim(substr($actionCode, (int)(strrpos($actionCode, '.') ?: -1) + 1)) : '';
+        $parts = array_filter(explode('.', $actionCode));
+        $prefix = $parts[0] ?? 'system';
+
+        return match ($actionCode) {
+            'users.status_updated' => 'Updated user status',
+            'users.deleted' => 'Deleted user',
+            'employers.verification_updated' => 'Updated employer verification',
+            'reports.resolved' => 'Resolved report',
+            'rbac.updated' => 'Updated role permissions',
+            default => trim(str_replace(['_', '.'], ' ', $actionCode)) ?: ucfirst($prefix),
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private static function humanizeAuditTarget(string $entityType, string $entityId, array $payload): string
+    {
+        if ($entityType === 'rbac') {
+            return (string)($payload['role'] ?? 'RBAC');
+        }
+
+        if ($entityType === 'report') {
+            return 'Report #' . $entityId;
+        }
+
+        if ($entityType === 'user' && isset($payload['user_id'])) {
+            return (string)$payload['user_id'];
+        }
+
+        if ($entityType === 'employer' && isset($payload['employer_id'])) {
+            return (string)$payload['employer_id'];
+        }
+
+        if ($entityId !== '') {
+            return ucfirst($entityType) . ' #' . $entityId;
+        }
+
+        return ucfirst($entityType);
     }
 
     /**

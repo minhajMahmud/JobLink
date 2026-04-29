@@ -68,9 +68,35 @@ final class AdminService
     /**
      * @return array<string, mixed>
      */
+    public function getSummary(): array
+    {
+        return $this->repository->getSummary();
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    public function getAuditLogs(array $filters, int $page, int $limit): array
+    {
+        return $this->repository->getAuditLogs($filters, $page, $limit);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function getRbacMatrix(): array
     {
         return $this->repository->getRbacMatrix();
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    public function updateRbacMatrix(array $payload, array $actor = []): array
+    {
+        return $this->repository->updateRbacMatrix($payload, $actor);
     }
 
     /**

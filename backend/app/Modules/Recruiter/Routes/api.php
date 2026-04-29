@@ -73,6 +73,22 @@ return [
         ['GET', '/dashboard', 'RecruiterDashboardController@getDashboard'],
         ['GET', '/dashboard/pipeline', 'RecruiterDashboardController@getPipelineStats'],
         ['GET', '/dashboard/analytics', 'RecruiterDashboardController@getAnalytics'],
+
+        // Employer Dashboard Backend Integration
+        ['GET', '/employer/company', 'EmployerController@getCompany'],
+        ['PUT', '/employer/company', 'EmployerController@saveCompany'],
+        ['GET', '/employer/jobs', 'EmployerController@getJobs'],
+        ['POST', '/employer/jobs', 'EmployerController@createJob'],
+        ['PUT', '/employer/jobs/{id}/status', 'EmployerController@updateJobStatus'],
+        ['POST', '/employer/jobs/{id}/toggle-featured', 'EmployerController@toggleJobFeatured'],
+        ['DELETE', '/employer/jobs/{id}', 'EmployerController@deleteJob'],
+        ['GET', '/employer/applicants', 'EmployerController@getApplicants'],
+        ['PUT', '/employer/applicants/{id}/status', 'EmployerController@updateApplicantStatus'],
+        ['PUT', '/employer/applicants/{id}/notes', 'EmployerController@updateApplicantNotes'],
+        ['GET', '/employer/interviews', 'EmployerController@getInterviews'],
+        ['POST', '/employer/interviews', 'EmployerController@scheduleInterview'],
+        ['GET', '/employer/posts', 'EmployerController@getPosts'],
+        ['POST', '/employer/posts', 'EmployerController@createPost'],
     ]
 ];
 

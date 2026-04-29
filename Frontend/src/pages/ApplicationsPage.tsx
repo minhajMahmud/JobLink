@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { initialApplications, Application, ApplicationStatus } from "@/data/mockData";
 import { CheckCircle2, Clock, XCircle, CalendarDays, Award, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
+import * as candidateApi from "@/features/profile/api/candidateApi";
+import { toast } from "sonner";
 
 const statusConfig: Record<ApplicationStatus, { icon: React.ElementType; color: string; bg: string }> = {
   Applied: { icon: Clock, color: "text-muted-foreground", bg: "bg-secondary" },
@@ -17,46 +19,63 @@ const boardColumns: ApplicationStatus[] = ["Applied", "Shortlisted", "Interview"
 const APPLICATIONS_STORAGE_KEY = "joblink.applications";
 
 export default function ApplicationsPage() {
-  const [applications, setApplications] = useState<Application[]>(() => {
-    const raw = localStorage.getItem(APPLICATIONS_STORAGE_KEY);
-    const persisted = raw ? (JSON.parse(raw) as Application[]) : [];
-
-    const merged = [...persisted, ...initialApplications].reduce<Application[]>((acc, current) => {
-      if (acc.some((entry) => entry.jobId === current.jobId)) {
-        return acc;
-      }
-
-      acc.push(current);
-      return acc;
-    }, []);
-
-    localStorage.setItem(APPLICATIONS_STORAGE_KEY, JSON.stringify(merged));
-    return merged;
-  });
+  const [applications, setApplications] = useState<Application[]>([]);
   const [filter, setFilter] = useState<ApplicationStatus | "All">("All");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch applications from backend
+  useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await candidateApi.getApplications();
+        const appsData = Array.isArray(response) ? response : response.data || [];
+        setApplications(appsData);
+      } catch (err) {
+        console.error("Failed to fetch applications:", err);
+        setError("Failed to load applications. Using mock data.");
+        // Fallback to mock data on error
+        setApplications(initialApplications);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchApplications();
+  }, []);
 
   const filtered = useMemo(() => {
     return filter === "All" ? applications : applications.filter((a) => a.status === filter);
   }, [applications, filter]);
 
-  const moveApplication = (id: string, status: ApplicationStatus) => {
-    setApplications((current) => {
-      const appToMove = current.find(app => app.id === id);
-      if (!appToMove || appToMove.status === status) return current;
+  const moveApplication = async (id: string, status: ApplicationStatus) => {
+    const appToMove = applications.find(app => app.id === id);
+    if (!appToMove || appToMove.status === status) return;
 
-      const next = current.map((app) =>
-        app.id === id
-          ? {
-            ...app,
-            status,
-            statusHistory: [...app.statusHistory, { status, date: "Just now" }],
-          }
-          : app,
+    try {
+      // Call backend API to update status
+      await candidateApi.updateApplicationStatus(id, status);
+      
+      // Update local state
+      setApplications((current) =>
+        current.map((app) =>
+          app.id === id
+            ? {
+              ...app,
+              status,
+              statusHistory: [...app.statusHistory, { status, date: "Just now" }],
+            }
+            : app,
+        ),
       );
-
-      localStorage.setItem(APPLICATIONS_STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
+      
+      toast.success(`Application moved to ${status}`);
+    } catch (err) {
+      console.error("Failed to update application status:", err);
+      toast.error("Failed to update application status.");
+    }
   };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -75,6 +94,12 @@ export default function ApplicationsPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      {error && (
+        <div className="rounded-2xl border border-destructive/50 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">{error}</p>
+        </div>
+      )}
+      
       <section className="relative overflow-hidden rounded-[2rem] border border-border/50 bg-card p-6 md:p-8 shadow-sm">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/8 via-transparent to-violet-500/8" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -86,7 +111,7 @@ export default function ApplicationsPage() {
             <div>
               <h1 className="font-display text-3xl font-bold tracking-tight text-foreground md:text-4xl">My Applications</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Track the status of your {applications.length} applications in a premium Kanban workflow with drag-and-drop updates.
+                Track the status of your {loading ? "..." : applications.length} applications in a premium Kanban workflow with drag-and-drop updates.
               </p>
             </div>
           </div>
@@ -136,7 +161,12 @@ export default function ApplicationsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-5">
-        {boardColumns.map((columnStatus) => {
+        {loading ? (
+          <div className="lg:col-span-5 rounded-2xl border border-border bg-card p-12 text-center">
+            <p className="text-sm text-muted-foreground">Loading your applications...</p>
+          </div>
+        ) : (
+          boardColumns.map((columnStatus) => {
           const columnEntries = filtered.filter((app) => app.status === columnStatus);
           const cfg = statusConfig[columnStatus];
           const Icon = cfg.icon;
@@ -229,7 +259,8 @@ export default function ApplicationsPage() {
               </div>
             </section>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );

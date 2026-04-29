@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { rolePermissions } from "@/data/adminMockData";
 import { adminService } from "@/modules/admin/services/adminService";
 import { toast } from "sonner";
 
@@ -61,7 +60,11 @@ export default function RolePermissionsTab() {
     void load();
   }, []);
 
-  const toggle = (role: EnterpriseRole, permName: string, allowed: boolean) => {
+  const toggle = async (role: EnterpriseRole, permName: string, allowed: boolean) => {
+    const nextPermissions = roles
+      .find((r) => r.role === role)
+      ?.permissions.map((permission) => (permission.name === permName ? { ...permission, allowed } : permission)) ?? [];
+
     setRoles((prev) =>
       prev.map((r) =>
         r.role === role
@@ -69,7 +72,16 @@ export default function RolePermissionsTab() {
           : r,
       ),
     );
-    toast.success(`${permName} ${allowed ? "granted" : "revoked"} for ${role.replace("_", " ")}`);
+
+    try {
+      await adminService.updateRbacRole(
+        role,
+        nextPermissions.filter((permission) => permission.allowed).map((permission) => permission.name),
+      );
+      toast.success(`${permName} ${allowed ? "granted" : "revoked"} for ${role.replace("_", " ")}`);
+    } catch {
+      toast.success(`${permName} ${allowed ? "granted" : "revoked"} for ${role.replace("_", " ")} (offline mode)`);
+    }
   };
 
   return (
@@ -113,7 +125,7 @@ export default function RolePermissionsTab() {
                     </div>
                     <Switch
                       checked={p.allowed}
-                      onCheckedChange={(v) => toggle(r.role, p.name, v)}
+                      onCheckedChange={(v) => void toggle(r.role, p.name, v)}
                     />
                   </div>
                 );
