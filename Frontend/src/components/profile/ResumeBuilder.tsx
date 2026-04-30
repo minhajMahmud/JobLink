@@ -12,7 +12,8 @@ import {
   Palette,
   Upload,
   Bot,
-  Briefcase
+  Briefcase,
+  Sparkles
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -122,7 +123,7 @@ export default function ResumeBuilder() {
           const { data } = response;
           setTheme(data.theme || "executive");
           setIncludeAvatar(Boolean(data.include_avatar));
-          
+
           if (data.personal_info) {
             setName(data.personal_info.name || currentUser.name);
             setTitle(data.personal_info.title || currentUser.title);
@@ -132,7 +133,7 @@ export default function ResumeBuilder() {
             setLinkedin(data.personal_info.linkedin || "linkedin.com/in/alexmorgan");
             setGithub(data.personal_info.github || "github.com/alexmorgan");
           }
-          
+
           if (data.summary) setSummary(data.summary);
           if (data.skills) setSkills(data.skills);
           if (data.languages) setLanguages(data.languages);
@@ -164,7 +165,7 @@ export default function ResumeBuilder() {
         headers,
         sections
       };
-      
+
       const response = await updateCandidateResume(payload);
       if (response.success) {
         toast({ title: "Resume Saved!", description: "Your resume configuration has been successfully saved." });
@@ -670,6 +671,18 @@ export default function ResumeBuilder() {
     { id: "creative", name: "Creative", icon: Palette },
     { id: "developer", name: "Developer", icon: Terminal },
   ];
+
+  // Show loading state while fetching resume data
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-border border-t-blue-500 rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground font-medium">Loading your resume...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

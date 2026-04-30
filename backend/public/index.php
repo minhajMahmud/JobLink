@@ -14,6 +14,12 @@ $request = Request::fromGlobals();
 $method = strtoupper($request->method());
 $path = $request->path();
 
+// Handle CORS preflight requests
+if ($method === 'OPTIONS') {
+    Response::json(null)->send();
+    exit;
+}
+
 if ($path === '/health' || $path === '/api/health') {
     Response::json([
         'service' => 'JobLink API',

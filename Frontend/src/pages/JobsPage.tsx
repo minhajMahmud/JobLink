@@ -1,12 +1,13 @@
 import { useMemo, useState, useEffect } from "react";
 import { BellRing, BookmarkCheck, Search, TrendingUp, Sparkles, X, Upload, FileText } from "lucide-react";
-import { currentUser, calculateSmartMatchScore, type Application, type Job } from "@/data/mockData";
+import { calculateSmartMatchScore, type Application, type Job } from "@/data/mockData";
 import JobCard from "@/components/jobs/JobCard";
 import JobFiltersPanel, { JobFilters } from "@/components/jobs/JobFilters";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import * as candidateApi from "@/features/profile/api/candidateApi";
+import { useAuth } from "@/features/auth/context/AuthContext";
 
 interface JobAlert {
   id: string;
@@ -19,6 +20,7 @@ const SAVED_RESUME_NAME = "Alex-Morgan-Resume.pdf";
 const APPLICATIONS_STORAGE_KEY = "joblink.applications";
 
 export default function JobsPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<JobFilters>({
     type: "All",
@@ -112,7 +114,17 @@ export default function JobsPage() {
       })
       .sort((a, b) => {
         if (sortBy === "match") {
-          return calculateSmartMatchScore(currentUser, b) - calculateSmartMatchScore(currentUser, a);
+          // Build a user-like object from auth context for match scoring
+          const viewer = {
+            id: user?.id ?? "1",
+            name: user?.name ?? "",
+            title: "",
+            avatar: user?.avatar ?? "",
+            connections: 0,
+            role: (user?.role ?? "seeker") as "seeker" | "employer" | "admin",
+            skills: [],
+          };
+          return calculateSmartMatchScore(viewer, b) - calculateSmartMatchScore(viewer, a);
         }
 
         return new Date(b.postedAtISO).getTime() - new Date(a.postedAtISO).getTime();

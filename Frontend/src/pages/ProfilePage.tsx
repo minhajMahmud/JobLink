@@ -45,11 +45,36 @@ const badges = [
   { icon: Shield, label: "Premium", color: "text-purple-500" },
 ];
 
+// Define types for profile data
+interface Experience {
+  id: string;
+  title: string;
+  company: string;
+  start_date?: string;
+  end_date?: string;
+  is_current: boolean;
+  description?: string;
+}
+
+interface Education {
+  id: string;
+  degree: string;
+  school: string;
+  field_of_study?: string;
+  start_date?: string;
+  end_date?: string;
+  is_current: boolean;
+  description?: string;
+  grade?: string;
+}
+
 export default function ProfilePage() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isEditingUrl, setIsEditingUrl] = useState(false);
   const [customUrl, setCustomUrl] = useState("alexmorgan");
-  const [profileData, setProfileData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [profileData, setProfileData] = useState<Record<string, unknown> | null>(null);
+  const [activeTab, setActiveTab] = useState("about");
   const { logout } = useAuth();
   const userPosts = posts.slice(0, 2);
 
@@ -67,7 +92,7 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  const displayUser = profileData ? { ...currentUser, name: profileData.name || currentUser.name, title: profileData.title || currentUser.title, bio: profileData.bio || currentUser.bio, location: profileData.location || "San Francisco, CA" } : currentUser;
+  const displayUser = profileData ? { ...currentUser, name: (profileData.name as string) || currentUser.name, title: (profileData.title as string) || currentUser.title } : currentUser;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -80,7 +105,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <motion.div 
+    <motion.div
       className="mx-auto max-w-5xl"
       initial="hidden"
       animate="visible"
@@ -93,7 +118,7 @@ export default function ProfilePage() {
           <motion.div variants={itemVariants} className="overflow-hidden rounded-2xl border border-border bg-card shadow-lg hover:shadow-xl transition-shadow duration-300">
             {/* Premium Wave Animation Background */}
             <div className="relative h-40 sm:h-56 overflow-hidden">
-              <motion.div 
+              <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 opacity-90"
                 animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
                 transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
@@ -101,7 +126,7 @@ export default function ProfilePage() {
               />
               <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay" />
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card/90" />
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.5 }}
                 className="absolute top-4 right-4 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/30 backdrop-blur-md shadow-lg"
               >
@@ -114,7 +139,7 @@ export default function ProfilePage() {
             <div className="px-6 pb-8">
               <div className="flex flex-col sm:flex-row sm:items-end sm:gap-6 -mt-16 sm:-mt-24 relative z-10">
                 {/* Avatar with Animation */}
-                <motion.div 
+                <motion.div
                   whileHover={{ scale: 1.05 }}
                   className="relative group cursor-pointer"
                 >
@@ -139,7 +164,7 @@ export default function ProfilePage() {
                       <p className="text-lg text-foreground/80 mt-1 font-medium">{displayUser.title}</p>
                       <div className="flex gap-2 mt-3">
                         {badges.map((badge, idx) => (
-                          <motion.div 
+                          <motion.div
                             initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + idx * 0.1 }}
                             key={badge.label} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary/60 border border-border/50"
                           >
@@ -153,6 +178,7 @@ export default function ProfilePage() {
                     {/* Action Dropdown */}
                     <div className="relative">
                       <button
+                        title="Profile menu"
                         onClick={() => setProfileMenuOpen(!profileMenuOpen)}
                         className="p-2.5 rounded-xl hover:bg-secondary transition-colors border border-border bg-card shadow-sm hover:shadow-md"
                       >
@@ -160,7 +186,7 @@ export default function ProfilePage() {
                       </button>
                       <AnimatePresence>
                         {profileMenuOpen && (
-                          <motion.div 
+                          <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -196,8 +222,9 @@ export default function ProfilePage() {
                   <LinkIcon className="h-4 w-4 shrink-0 text-blue-500" />
                   <span className="truncate">smartconnect.io/</span>
                   {isEditingUrl ? (
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
+                      placeholder="Custom URL"
                       value={customUrl}
                       onChange={(e) => setCustomUrl(e.target.value)}
                       className="bg-background border border-blue-500 rounded px-2 py-0.5 text-foreground font-medium w-32 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -207,7 +234,7 @@ export default function ProfilePage() {
                     <span className="font-semibold text-foreground">{customUrl}</span>
                   )}
                 </div>
-                <button 
+                <button
                   onClick={() => setIsEditingUrl(!isEditingUrl)}
                   className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-500/10 px-3 py-1.5 rounded-lg transition-colors"
                 >
@@ -223,7 +250,7 @@ export default function ProfilePage() {
                   { label: "Endorsements", value: "48", icon: Award },
                   { label: "Member Since", value: "2019", icon: Calendar }
                 ].map((stat, i) => (
-                  <motion.div 
+                  <motion.div
                     whileHover={{ scale: 1.02 }}
                     key={i} className="rounded-xl bg-gradient-to-br from-secondary/50 to-secondary/20 p-4 border border-border/50 shadow-sm"
                   >
@@ -239,7 +266,7 @@ export default function ProfilePage() {
               {/* Info Row */}
               <motion.div variants={itemVariants} className="mt-5 flex flex-wrap gap-3 text-sm text-foreground/80">
                 <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors border border-transparent hover:border-border"><Briefcase className="h-4 w-4 text-blue-500" />{displayUser.company}</span>
-                <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors border border-transparent hover:border-border"><MapPin className="h-4 w-4 text-red-500" />{displayUser.location}</span>
+                <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors border border-transparent hover:border-border"><MapPin className="h-4 w-4 text-red-500" />San Francisco, CA</span>
                 <a href="#" className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-blue-500/10 hover:text-blue-600 cursor-pointer transition-colors border border-transparent hover:border-blue-500/20"><Globe className="h-4 w-4 text-green-500" /> alexmorgan.dev</a>
               </motion.div>
 
@@ -260,12 +287,12 @@ export default function ProfilePage() {
 
           {/* Tabs */}
           <motion.div variants={itemVariants}>
-            <Tabs defaultValue="about" className="w-full">
+            <Tabs defaultValue="about" value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden rounded-2xl bg-secondary/40 border border-border p-1.5 h-auto shadow-inner no-scrollbar">
                 {["About", "Featured", "Resume", "Activity"].map(tab => (
-                  <TabsTrigger 
-                    key={tab.toLowerCase()} 
-                    value={tab.toLowerCase()} 
+                  <TabsTrigger
+                    key={tab.toLowerCase()}
+                    value={tab.toLowerCase()}
                     className="rounded-xl px-6 py-2.5 font-semibold transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-foreground/5 text-foreground/70"
                   >
                     {tab}
@@ -274,191 +301,220 @@ export default function ProfilePage() {
               </TabsList>
 
               <TabsContent value="about" className="space-y-6 mt-6 focus:outline-none">
-                {/* About Section - Premium Card */}
-                <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                        <BookOpen className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <h2 className="text-xl font-bold font-display text-foreground">About</h2>
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-8 h-8 border-3 border-border border-t-blue-500 rounded-full animate-spin" />
+                      <p className="text-sm text-muted-foreground">Loading profile...</p>
                     </div>
-                    <button className="p-2 hover:bg-secondary rounded-lg transition-colors"><Edit2 className="h-4 w-4 text-muted-foreground" /></button>
                   </div>
-                  <p className="text-base leading-relaxed text-foreground/80">
-                    Passionate software engineer with over 6 years of experience building highly scalable web applications. 
-                    I thrive on solving complex architectural challenges and mentoring engineering teams. Currently focused 
-                    on modern frontend architectures, micro-frontends, and highly interactive user interfaces.
-                  </p>
-                </motion.div>
-
-                {/* Experience & Education - Grid Layout */}
-                <div className="grid sm:grid-cols-2 gap-6">
-                  {/* Experience */}
-                  <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                          <Briefcase className="h-4 w-4 text-amber-600" />
-                        </div>
-                        <h2 className="text-xl font-bold font-display text-foreground">Experience</h2>
-                      </div>
-                    </div>
-                    <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
-                      {experience.map((exp, idx) => (
-                        <motion.div 
-                          initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
-                          key={exp.title} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
-                        >
-                          <div className="flex items-center justify-center w-10 h-10 rounded-full border border-card bg-secondary text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 transition-transform group-hover:scale-110">
-                            <Check className="h-4 w-4 text-blue-500" />
+                ) : (
+                  <>
+                    {/* About Section - Premium Card */}
+                    <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                            <BookOpen className="h-4 w-4 text-blue-600" />
                           </div>
-                          <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-border bg-card/50 shadow-sm transition-all group-hover:shadow-md group-hover:border-blue-500/30">
-                            <div className="flex items-center justify-between mb-1">
-                              <h3 className="font-bold text-foreground text-sm">{exp.title}</h3>
-                              {idx === 0 && <span className="text-[10px] uppercase tracking-wider font-bold text-green-600 bg-green-500/10 px-2 py-0.5 rounded">Current</span>}
+                          <h2 className="text-xl font-bold font-display text-foreground">About</h2>
+                        </div>
+                        <button title="Edit about" className="p-2 hover:bg-secondary rounded-lg transition-colors"><Edit2 className="h-4 w-4 text-muted-foreground" /></button>
+                      </div>
+                      <p className="text-base leading-relaxed text-foreground/80">
+                        Passionate software engineer with over 6 years of experience building highly scalable web applications.
+                        I thrive on solving complex architectural challenges and mentoring engineering teams. Currently focused
+                        on modern frontend architectures, micro-frontends, and highly interactive user interfaces.
+                      </p>
+                    </motion.div>
+
+                    {/* Experience & Education - Grid Layout */}
+                    <div className="grid sm:grid-cols-2 gap-6">
+                      {/* Experience */}
+                      <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                              <Briefcase className="h-4 w-4 text-amber-600" />
                             </div>
-                            <div className="text-sm text-foreground/70 mb-2">{exp.company} • {exp.period}</div>
-                            <p className="text-xs text-muted-foreground">{exp.description}</p>
+                            <h2 className="text-xl font-bold font-display text-foreground">Experience</h2>
                           </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </motion.div>
-
-                  {/* Education */}
-                  <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                          <GraduationCap className="h-4 w-4 text-purple-600" />
                         </div>
-                        <h2 className="text-xl font-bold font-display text-foreground">Education</h2>
-                      </div>
-                    </div>
-                    <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
-                      {education.map((edu, idx) => (
-                        <motion.div 
-                          initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
-                          key={edu.degree} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
-                        >
-                          <div className="flex items-center justify-center w-10 h-10 rounded-full border border-card bg-secondary text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 transition-transform group-hover:scale-110">
-                            <div className="h-2 w-2 rounded-full bg-purple-500" />
-                          </div>
-                          <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-border bg-card/50 shadow-sm transition-all group-hover:shadow-md group-hover:border-purple-500/30">
-                            <h3 className="font-bold text-foreground text-sm mb-1">{edu.degree}</h3>
-                            <div className="text-sm text-foreground/70 mb-2">{edu.school} • {edu.period}</div>
-                            <p className="text-xs text-muted-foreground">{edu.description}</p>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </motion.div>
-                </div>
-
-                {/* Skills & Endorsements */}
-                <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                        <Award className="h-4 w-4 text-green-600" />
-                      </div>
-                      <h2 className="text-xl font-bold font-display text-foreground">Top Skills & Endorsements</h2>
-                    </div>
-                    <button className="text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-500/10 px-3 py-1.5 rounded-lg transition-colors">Manage Skills</button>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    {skillsWithEndorsements.map((skill, i) => (
-                      <motion.div 
-                        whileHover={{ scale: 1.02 }}
-                        key={skill.name} className="flex items-center justify-between p-4 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/40 transition-colors"
-                      >
-                        <div>
-                          <h4 className="font-bold text-foreground text-base tracking-tight">{skill.name}</h4>
-                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            Endorsed by <span className="font-semibold text-foreground/80">{skill.topEndorsers.join(", ")}</span> & others
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 bg-background border border-border px-3 py-1.5 rounded-lg shadow-sm">
-                          <Users className="h-3.5 w-3.5 text-blue-500" />
-                          <span className="font-bold text-sm">{skill.count}</span>
+                        <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
+                          {experience.map((exp, idx) => (
+                            <motion.div
+                              initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
+                              key={exp.title} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
+                            >
+                              <div className="flex items-center justify-center w-10 h-10 rounded-full border border-card bg-secondary text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 transition-transform group-hover:scale-110">
+                                <Check className="h-4 w-4 text-blue-500" />
+                              </div>
+                              <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-border bg-card/50 shadow-sm transition-all group-hover:shadow-md group-hover:border-blue-500/30">
+                                <div className="flex items-center justify-between mb-1">
+                                  <h3 className="font-bold text-foreground text-sm">{exp.title}</h3>
+                                  {idx === 0 && <span className="text-[10px] uppercase tracking-wider font-bold text-green-600 bg-green-500/10 px-2 py-0.5 rounded">Current</span>}
+                                </div>
+                                <div className="text-sm text-foreground/70 mb-2">{exp.company} • {exp.period}</div>
+                                <p className="text-xs text-muted-foreground">{exp.description}</p>
+                              </div>
+                            </motion.div>
+                          ))}
                         </div>
                       </motion.div>
-                    ))}
-                  </div>
-                  <div className="mt-6 pt-4 border-t border-border">
-                    <SkillTagger initialSkills={currentUser.skills ?? []} />
-                  </div>
-                </motion.div>
+
+                      {/* Education */}
+                      <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                              <GraduationCap className="h-4 w-4 text-purple-600" />
+                            </div>
+                            <h2 className="text-xl font-bold font-display text-foreground">Education</h2>
+                          </div>
+                        </div>
+                        <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
+                          {education.map((edu, idx) => (
+                            <motion.div
+                              initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
+                              key={edu.degree} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
+                            >
+                              <div className="flex items-center justify-center w-10 h-10 rounded-full border border-card bg-secondary text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 transition-transform group-hover:scale-110">
+                                <div className="h-2 w-2 rounded-full bg-purple-500" />
+                              </div>
+                              <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-border bg-card/50 shadow-sm transition-all group-hover:shadow-md group-hover:border-purple-500/30">
+                                <h3 className="font-bold text-foreground text-sm mb-1">{edu.degree}</h3>
+                                <div className="text-sm text-foreground/70 mb-2">{edu.school} • {edu.period}</div>
+                                <p className="text-xs text-muted-foreground">{edu.description}</p>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    </div>
+
+                    {/* Skills & Endorsements */}
+                    <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+                      <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                            <Award className="h-4 w-4 text-green-600" />
+                          </div>
+                          <h2 className="text-xl font-bold font-display text-foreground">Top Skills & Endorsements</h2>
+                        </div>
+                        <button className="text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-500/10 px-3 py-1.5 rounded-lg transition-colors">Manage Skills</button>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        {skillsWithEndorsements.map((skill, i) => (
+                          <motion.div
+                            whileHover={{ scale: 1.02 }}
+                            key={skill.name} className="flex items-center justify-between p-4 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/40 transition-colors"
+                          >
+                            <div>
+                              <h4 className="font-bold text-foreground text-base tracking-tight">{skill.name}</h4>
+                              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                Endorsed by <span className="font-semibold text-foreground/80">{skill.topEndorsers.join(", ")}</span> & others
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 bg-background border border-border px-3 py-1.5 rounded-lg shadow-sm">
+                              <Users className="h-3.5 w-3.5 text-blue-500" />
+                              <span className="font-bold text-sm">{skill.count}</span>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                      <div className="mt-6 pt-4 border-t border-border">
+                        <SkillTagger initialSkills={currentUser.skills ?? []} />
+                      </div>
+                    </motion.div>
+                  </>
+                )}
               </TabsContent>
 
               <TabsContent value="featured" className="space-y-6 mt-6 focus:outline-none">
-                <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid lg:grid-cols-2 gap-6">
-                  {/* Projects */}
-                  <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-2 mb-6">
-                      <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                        <Shield className="h-4 w-4 text-emerald-600" />
-                      </div>
-                      <h2 className="text-xl font-bold font-display text-foreground">Featured Projects</h2>
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-8 h-8 border-3 border-border border-t-blue-500 rounded-full animate-spin" />
+                      <p className="text-sm text-muted-foreground">Loading projects...</p>
                     </div>
-                    <div className="space-y-4">
-                      {projects.map((project) => (
-                        <div key={project.title} className="p-4 rounded-xl bg-secondary/30 border border-border/50 hover:border-emerald-500/30 transition-colors group">
-                          <div className="flex justify-between items-start mb-2">
-                            <h3 className="font-bold text-foreground">{project.title}</h3>
-                            <a href={`https://${project.link}`} className="text-muted-foreground hover:text-emerald-500 transition-colors"><ExternalLink className="h-4 w-4" /></a>
+                  </div>
+                ) : (
+                  <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid lg:grid-cols-2 gap-6">
+                    {/* Projects */}
+                    <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                          <Shield className="h-4 w-4 text-emerald-600" />
+                        </div>
+                        <h2 className="text-xl font-bold font-display text-foreground">Featured Projects</h2>
+                      </div>
+                      <div className="space-y-4">
+                        {projects.map((project) => (
+                          <div key={project.title} className="p-4 rounded-xl bg-secondary/30 border border-border/50 hover:border-emerald-500/30 transition-colors group">
+                            <div className="flex justify-between items-start mb-2">
+                              <h3 className="font-bold text-foreground">{project.title}</h3>
+                              <a href={`https://${project.link}`} title="View project" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-emerald-500 transition-colors"><ExternalLink className="h-4 w-4" /></a>
+                            </div>
+                            <p className="text-xs text-foreground/60 mb-2">{project.period}</p>
+                            <p className="text-sm text-muted-foreground/90">{project.description}</p>
                           </div>
-                          <p className="text-xs text-foreground/60 mb-2">{project.period}</p>
-                          <p className="text-sm text-muted-foreground/90">{project.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </motion.div>
-
-                  {/* Publications */}
-                  <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-2 mb-6">
-                      <div className="h-8 w-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                        <BookOpen className="h-4 w-4 text-indigo-600" />
+                        ))}
                       </div>
-                      <h2 className="text-xl font-bold font-display text-foreground">Publications</h2>
-                    </div>
-                    <div className="space-y-4">
-                      {publications.map((pub) => (
-                        <div key={pub.title} className="p-4 rounded-xl bg-secondary/30 border border-border/50 hover:border-indigo-500/30 transition-colors">
-                          <h3 className="font-bold text-foreground mb-1 leading-snug">{pub.title}</h3>
-                          <p className="text-sm text-indigo-600/80 font-medium mb-1">{pub.publisher}</p>
-                          <p className="text-xs text-muted-foreground">{pub.date}</p>
+                    </motion.div>
+
+                    {/* Publications */}
+                    <motion.div variants={itemVariants} className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="h-8 w-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                          <BookOpen className="h-4 w-4 text-indigo-600" />
                         </div>
-                      ))}
-                    </div>
+                        <h2 className="text-xl font-bold font-display text-foreground">Publications</h2>
+                      </div>
+                      <div className="space-y-4">
+                        {publications.map((pub) => (
+                          <div key={pub.title} className="p-4 rounded-xl bg-secondary/30 border border-border/50 hover:border-indigo-500/30 transition-colors">
+                            <h3 className="font-bold text-foreground mb-1 leading-snug">{pub.title}</h3>
+                            <p className="text-sm text-indigo-600/80 font-medium mb-1">{pub.publisher}</p>
+                            <p className="text-xs text-muted-foreground">{pub.date}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
                   </motion.div>
-                </motion.div>
+                )}
               </TabsContent>
 
               <TabsContent value="resume" className="mt-6 focus:outline-none">
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-                  <ResumeBuilder />
+                  <ResumeBuilder key={activeTab === "resume" ? "resume-active" : "resume-inactive"} />
                 </motion.div>
               </TabsContent>
 
               <TabsContent value="activity" className="mt-6 focus:outline-none">
-                <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                      <Share2 className="h-4 w-4 text-blue-600" />
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-8 h-8 border-3 border-border border-t-blue-500 rounded-full animate-spin" />
+                      <p className="text-sm text-muted-foreground">Loading activity...</p>
                     </div>
-                    <h2 className="text-xl font-bold font-display text-foreground">Recent Activity</h2>
                   </div>
-                  {userPosts.map((post) => (
-                    <motion.div variants={itemVariants} key={post.id}>
-                      <PostCard post={post} />
-                    </motion.div>
-                  ))}
-                </motion.div>
+                ) : (
+                  <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                        <Share2 className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <h2 className="text-xl font-bold font-display text-foreground">Recent Activity</h2>
+                    </div>
+                    {userPosts.map((post) => (
+                      <motion.div variants={itemVariants} key={post.id}>
+                        <PostCard post={post} onReact={() => { }} onAddComment={() => { }} onShare={() => { }} onVotePoll={() => { }} />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                )}
               </TabsContent>
             </Tabs>
           </motion.div>

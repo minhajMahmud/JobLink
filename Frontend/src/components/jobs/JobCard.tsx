@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MapPin, Clock, Users, DollarSign, Bookmark, Verified, UserPlus } from "lucide-react";
-import { Job, currentUser, calculateSmartMatchScore } from "@/data/mockData";
+import { Job, calculateSmartMatchScore } from "@/data/mockData";
 import { motion } from "framer-motion";
 import JobMatchBadge from "./JobMatchBadge";
+import { useAuth } from "@/features/auth/context/AuthContext";
 
 interface JobCardProps {
   job: Job;
@@ -12,7 +14,10 @@ interface JobCardProps {
 }
 
 export default function JobCard({ job, onApply, onBookmark, isBookmarked }: JobCardProps) {
-  const matchScore = calculateSmartMatchScore(currentUser, job);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const viewer = { id: user?.id ?? "1", name: user?.name ?? "", title: "", avatar: user?.avatar ?? "", connections: 0, role: (user?.role ?? "seeker") as "seeker" | "employer" | "admin", skills: [] };
+  const matchScore = calculateSmartMatchScore(viewer, job);
   const [following, setFollowing] = useState(false);
 
   return (
@@ -94,10 +99,10 @@ export default function JobCard({ job, onApply, onBookmark, isBookmarked }: JobC
 
           <div className="mt-3 flex flex-wrap gap-2">
             <span className={`rounded-lg px-2.5 py-1 text-xs font-medium ${job.type === 'Remote'
-                ? 'bg-accent/10 text-accent'
-                : job.type === 'Full-time'
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-warning/10 text-warning'
+              ? 'bg-accent/10 text-accent'
+              : job.type === 'Full-time'
+                ? 'bg-primary/10 text-primary'
+                : 'bg-warning/10 text-warning'
               }`}>
               {job.type}
             </span>
@@ -108,8 +113,8 @@ export default function JobCard({ job, onApply, onBookmark, isBookmarked }: JobC
               <span
                 key={skill}
                 className={`rounded-lg px-2.5 py-1 text-xs ${(currentUser.skills || []).map(s => s.toLowerCase()).includes(skill.toLowerCase())
-                    ? "bg-accent/10 text-accent font-semibold"
-                    : "bg-secondary text-secondary-foreground"
+                  ? "bg-accent/10 text-accent font-semibold"
+                  : "bg-secondary text-secondary-foreground"
                   }`}
               >
                 {skill}
@@ -124,7 +129,10 @@ export default function JobCard({ job, onApply, onBookmark, isBookmarked }: JobC
             >
               Apply Now
             </button>
-            <button className="rounded-xl border border-border px-5 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-all">
+            <button
+              onClick={() => navigate(`/jobs/${job.id}`)}
+              className="rounded-xl border border-border px-5 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-all"
+            >
               Learn More
             </button>
           </div>

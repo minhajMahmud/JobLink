@@ -38,9 +38,95 @@ final class CandidateController
             return ['success' => false, 'message' => 'Profile not found', 'data' => null];
         }
 
+        $candidateId = (string)($candidate['id'] ?? '');
+
+        // Decode JSON fields
         if (isset($candidate['skills']) && is_string($candidate['skills'])) {
             $candidate['skills'] = json_decode($candidate['skills'], true) ?: [];
         }
+
+        // Fetch experience
+        $stmt = $pdo->prepare('
+            SELECT id, title, company, start_date, end_date, is_current, description 
+            FROM candidate_experiences 
+            WHERE candidate_id = :candidate_id 
+            ORDER BY start_date DESC
+        ');
+        $stmt->execute(['candidate_id' => $candidateId]);
+        $candidate['experience'] = $stmt->fetchAll() ?: [];
+
+        // Fetch education
+        $stmt = $pdo->prepare('
+            SELECT id, degree, school, field_of_study, start_date, end_date, is_current, description, grade 
+            FROM candidate_education 
+            WHERE candidate_id = :candidate_id 
+            ORDER BY end_date DESC
+        ');
+        $stmt->execute(['candidate_id' => $candidateId]);
+        $candidate['education'] = $stmt->fetchAll() ?: [];
+
+        // Fetch projects
+        $stmt = $pdo->prepare('
+            SELECT id, title, description, link, start_date, end_date, is_current, technologies, image_url 
+            FROM candidate_projects 
+            WHERE candidate_id = :candidate_id 
+            ORDER BY start_date DESC
+        ');
+        $stmt->execute(['candidate_id' => $candidateId]);
+        $projects = $stmt->fetchAll() ?: [];
+        
+        // Decode technologies JSON
+        foreach ($projects as &$project) {
+            if (isset($project['technologies']) && is_string($project['technologies'])) {
+                $project['technologies'] = json_decode($project['technologies'], true) ?: [];
+            }
+        }
+        $candidate['projects'] = $projects;
+
+        // Fetch publications
+        $stmt = $pdo->prepare('
+            SELECT id, title, publisher, publication_date, link, description 
+            FROM candidate_publications 
+            WHERE candidate_id = :candidate_id 
+            ORDER BY publication_date DESC
+        ');
+        $stmt->execute(['candidate_id' => $candidateId]);
+        $candidate['publications'] = $stmt->fetchAll() ?: [];
+
+        // Fetch skill endorsements
+        $stmt = $pdo->prepare('
+            SELECT skill_name, endorsement_count, top_endorsers 
+            FROM candidate_skill_endorsements 
+            WHERE candidate_id = :candidate_id 
+            ORDER BY endorsement_count DESC
+        ');
+        $stmt->execute(['candidate_id' => $candidateId]);
+        $endorsements = $stmt->fetchAll() ?: [];
+        
+        // Decode top_endorsers JSON
+        $skillsWithEndorsements = [];
+        foreach ($endorsements as $endorsement) {
+            $topEndorsers = [];
+            if (isset($endorsement['top_endorsers']) && is_string($endorsement['top_endorsers'])) {
+                $topEndorsers = json_decode($endorsement['top_endorsers'], true) ?: [];
+            }
+            $skillsWithEndorsements[] = [
+                'name' => $endorsement['skill_name'],
+                'count' => (int)$endorsement['endorsement_count'],
+                'topEndorsers' => is_array($topEndorsers) ? $topEndorsers : []
+            ];
+        }
+        $candidate['skillsWithEndorsements'] = $skillsWithEndorsements;
+
+        // Fetch certifications
+        $stmt = $pdo->prepare('
+            SELECT id, name, issuer, issue_date, expiration_date, credential_id, credential_url 
+            FROM candidate_certifications 
+            WHERE candidate_id = :candidate_id 
+            ORDER BY issue_date DESC
+        ');
+        $stmt->execute(['candidate_id' => $candidateId]);
+        $candidate['certifications'] = $stmt->fetchAll() ?: [];
 
         return ['success' => true, 'data' => $candidate];
     }
@@ -332,5 +418,561 @@ final class CandidateController
         $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
 
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+    }
+
+    // Experience management
+    public function addExperience(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $data = $request->json();
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $id = $this->generateUuidV4();
+        $stmt = $pdo->prepare('
+            INSERT INTO candidate_experiences (id, candidate_id, title, company, start_date, end_date, is_current, description)
+            VALUES (:id, :candidate_id, :title, :company, :start_date, :end_date, :is_current, :description)
+        ');
+
+        $stmt->execute([
+            'id' => $id,
+            'candidate_id' => $candidateId,
+            'title' => $data['title'] ?? '',
+            'company' => $data['company'] ?? '',
+            'start_date' => $data['start_date'] ?? null,
+            'end_date' => $data['end_date'] ?? null,
+            'is_current' => $data['is_current'] ? 1 : 0,
+            'description' => $data['description'] ?? '',
+        ]);
+
+        return ['success' => true, 'data' => ['id' => $id]];
+    }
+
+    public function updateExperience(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $id = (string)$request->route('id');
+        $data = $request->json();
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $stmt = $pdo->prepare('
+            UPDATE candidate_experiences
+            SET title = :title, company = :company, start_date = :start_date, 
+                end_date = :end_date, is_current = :is_current, description = :description
+            WHERE id = :id AND candidate_id = :candidate_id
+        ');
+
+        $stmt->execute([
+            'id' => $id,
+            'candidate_id' => $candidateId,
+            'title' => $data['title'] ?? '',
+            'company' => $data['company'] ?? '',
+            'start_date' => $data['start_date'] ?? null,
+            'end_date' => $data['end_date'] ?? null,
+            'is_current' => $data['is_current'] ? 1 : 0,
+            'description' => $data['description'] ?? '',
+        ]);
+
+        return ['success' => true, 'message' => 'Experience updated'];
+    }
+
+    public function deleteExperience(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $id = (string)$request->route('id');
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $stmt = $pdo->prepare('DELETE FROM candidate_experiences WHERE id = :id AND candidate_id = :candidate_id');
+        $stmt->execute(['id' => $id, 'candidate_id' => $candidateId]);
+
+        return ['success' => true, 'message' => 'Experience deleted'];
+    }
+
+    // Education management
+    public function addEducation(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $data = $request->json();
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $id = $this->generateUuidV4();
+        $stmt = $pdo->prepare('
+            INSERT INTO candidate_education (id, candidate_id, degree, school, field_of_study, start_date, end_date, is_current, description, grade)
+            VALUES (:id, :candidate_id, :degree, :school, :field_of_study, :start_date, :end_date, :is_current, :description, :grade)
+        ');
+
+        $stmt->execute([
+            'id' => $id,
+            'candidate_id' => $candidateId,
+            'degree' => $data['degree'] ?? '',
+            'school' => $data['school'] ?? '',
+            'field_of_study' => $data['field_of_study'] ?? null,
+            'start_date' => $data['start_date'] ?? null,
+            'end_date' => $data['end_date'] ?? null,
+            'is_current' => $data['is_current'] ? 1 : 0,
+            'description' => $data['description'] ?? '',
+            'grade' => $data['grade'] ?? null,
+        ]);
+
+        return ['success' => true, 'data' => ['id' => $id]];
+    }
+
+    public function updateEducation(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $id = (string)$request->route('id');
+        $data = $request->json();
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $stmt = $pdo->prepare('
+            UPDATE candidate_education
+            SET degree = :degree, school = :school, field_of_study = :field_of_study,
+                start_date = :start_date, end_date = :end_date, is_current = :is_current, 
+                description = :description, grade = :grade
+            WHERE id = :id AND candidate_id = :candidate_id
+        ');
+
+        $stmt->execute([
+            'id' => $id,
+            'candidate_id' => $candidateId,
+            'degree' => $data['degree'] ?? '',
+            'school' => $data['school'] ?? '',
+            'field_of_study' => $data['field_of_study'] ?? null,
+            'start_date' => $data['start_date'] ?? null,
+            'end_date' => $data['end_date'] ?? null,
+            'is_current' => $data['is_current'] ? 1 : 0,
+            'description' => $data['description'] ?? '',
+            'grade' => $data['grade'] ?? null,
+        ]);
+
+        return ['success' => true, 'message' => 'Education updated'];
+    }
+
+    public function deleteEducation(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $id = (string)$request->route('id');
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $stmt = $pdo->prepare('DELETE FROM candidate_education WHERE id = :id AND candidate_id = :candidate_id');
+        $stmt->execute(['id' => $id, 'candidate_id' => $candidateId]);
+
+        return ['success' => true, 'message' => 'Education deleted'];
+    }
+
+    // Projects management
+    public function addProject(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $data = $request->json();
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $id = $this->generateUuidV4();
+        $technologiesJson = json_encode($data['technologies'] ?? []);
+        $stmt = $pdo->prepare('
+            INSERT INTO candidate_projects (id, candidate_id, title, description, link, start_date, end_date, is_current, technologies, image_url)
+            VALUES (:id, :candidate_id, :title, :description, :link, :start_date, :end_date, :is_current, :technologies, :image_url)
+        ');
+
+        $stmt->execute([
+            'id' => $id,
+            'candidate_id' => $candidateId,
+            'title' => $data['title'] ?? '',
+            'description' => $data['description'] ?? '',
+            'link' => $data['link'] ?? null,
+            'start_date' => $data['start_date'] ?? null,
+            'end_date' => $data['end_date'] ?? null,
+            'is_current' => $data['is_current'] ? 1 : 0,
+            'technologies' => $technologiesJson,
+            'image_url' => $data['image_url'] ?? null,
+        ]);
+
+        return ['success' => true, 'data' => ['id' => $id]];
+    }
+
+    public function updateProject(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $id = (string)$request->route('id');
+        $data = $request->json();
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $technologiesJson = json_encode($data['technologies'] ?? []);
+        $stmt = $pdo->prepare('
+            UPDATE candidate_projects
+            SET title = :title, description = :description, link = :link, start_date = :start_date,
+                end_date = :end_date, is_current = :is_current, technologies = :technologies, image_url = :image_url
+            WHERE id = :id AND candidate_id = :candidate_id
+        ');
+
+        $stmt->execute([
+            'id' => $id,
+            'candidate_id' => $candidateId,
+            'title' => $data['title'] ?? '',
+            'description' => $data['description'] ?? '',
+            'link' => $data['link'] ?? null,
+            'start_date' => $data['start_date'] ?? null,
+            'end_date' => $data['end_date'] ?? null,
+            'is_current' => $data['is_current'] ? 1 : 0,
+            'technologies' => $technologiesJson,
+            'image_url' => $data['image_url'] ?? null,
+        ]);
+
+        return ['success' => true, 'message' => 'Project updated'];
+    }
+
+    public function deleteProject(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $id = (string)$request->route('id');
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $stmt = $pdo->prepare('DELETE FROM candidate_projects WHERE id = :id AND candidate_id = :candidate_id');
+        $stmt->execute(['id' => $id, 'candidate_id' => $candidateId]);
+
+        return ['success' => true, 'message' => 'Project deleted'];
+    }
+
+    // Publications management
+    public function addPublication(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $data = $request->json();
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $id = $this->generateUuidV4();
+        $stmt = $pdo->prepare('
+            INSERT INTO candidate_publications (id, candidate_id, title, publisher, publication_date, link, description)
+            VALUES (:id, :candidate_id, :title, :publisher, :publication_date, :link, :description)
+        ');
+
+        $stmt->execute([
+            'id' => $id,
+            'candidate_id' => $candidateId,
+            'title' => $data['title'] ?? '',
+            'publisher' => $data['publisher'] ?? null,
+            'publication_date' => $data['publication_date'] ?? null,
+            'link' => $data['link'] ?? null,
+            'description' => $data['description'] ?? '',
+        ]);
+
+        return ['success' => true, 'data' => ['id' => $id]];
+    }
+
+    public function updatePublication(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $id = (string)$request->route('id');
+        $data = $request->json();
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $stmt = $pdo->prepare('
+            UPDATE candidate_publications
+            SET title = :title, publisher = :publisher, publication_date = :publication_date, 
+                link = :link, description = :description
+            WHERE id = :id AND candidate_id = :candidate_id
+        ');
+
+        $stmt->execute([
+            'id' => $id,
+            'candidate_id' => $candidateId,
+            'title' => $data['title'] ?? '',
+            'publisher' => $data['publisher'] ?? null,
+            'publication_date' => $data['publication_date'] ?? null,
+            'link' => $data['link'] ?? null,
+            'description' => $data['description'] ?? '',
+        ]);
+
+        return ['success' => true, 'message' => 'Publication updated'];
+    }
+
+    public function deletePublication(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $id = (string)$request->route('id');
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $stmt = $pdo->prepare('DELETE FROM candidate_publications WHERE id = :id AND candidate_id = :candidate_id');
+        $stmt->execute(['id' => $id, 'candidate_id' => $candidateId]);
+
+        return ['success' => true, 'message' => 'Publication deleted'];
+    }
+
+    // Certifications management
+    public function addCertification(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $data = $request->json();
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $id = $this->generateUuidV4();
+        $stmt = $pdo->prepare('
+            INSERT INTO candidate_certifications (id, candidate_id, name, issuer, issue_date, expiration_date, credential_id, credential_url)
+            VALUES (:id, :candidate_id, :name, :issuer, :issue_date, :expiration_date, :credential_id, :credential_url)
+        ');
+
+        $stmt->execute([
+            'id' => $id,
+            'candidate_id' => $candidateId,
+            'name' => $data['name'] ?? '',
+            'issuer' => $data['issuer'] ?? null,
+            'issue_date' => $data['issue_date'] ?? null,
+            'expiration_date' => $data['expiration_date'] ?? null,
+            'credential_id' => $data['credential_id'] ?? null,
+            'credential_url' => $data['credential_url'] ?? null,
+        ]);
+
+        return ['success' => true, 'data' => ['id' => $id]];
+    }
+
+    public function updateCertification(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $id = (string)$request->route('id');
+        $data = $request->json();
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $stmt = $pdo->prepare('
+            UPDATE candidate_certifications
+            SET name = :name, issuer = :issuer, issue_date = :issue_date, 
+                expiration_date = :expiration_date, credential_id = :credential_id, credential_url = :credential_url
+            WHERE id = :id AND candidate_id = :candidate_id
+        ');
+
+        $stmt->execute([
+            'id' => $id,
+            'candidate_id' => $candidateId,
+            'name' => $data['name'] ?? '',
+            'issuer' => $data['issuer'] ?? null,
+            'issue_date' => $data['issue_date'] ?? null,
+            'expiration_date' => $data['expiration_date'] ?? null,
+            'credential_id' => $data['credential_id'] ?? null,
+            'credential_url' => $data['credential_url'] ?? null,
+        ]);
+
+        return ['success' => true, 'message' => 'Certification updated'];
+    }
+
+    public function deleteCertification(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $id = (string)$request->route('id');
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $stmt = $pdo->prepare('DELETE FROM candidate_certifications WHERE id = :id AND candidate_id = :candidate_id');
+        $stmt->execute(['id' => $id, 'candidate_id' => $candidateId]);
+
+        return ['success' => true, 'message' => 'Certification deleted'];
+    }
+
+    // Skills endorsements
+    public function endorseSkill(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $data = $request->json();
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => false, 'message' => 'Candidate not found'];
+        }
+
+        $skillName = $data['skill_name'] ?? '';
+        $stmt = $pdo->prepare('
+            INSERT INTO candidate_skill_endorsements (id, candidate_id, skill_name, endorsement_count, last_endorsed_at)
+            VALUES (:id, :candidate_id, :skill_name, 1, NOW())
+            ON DUPLICATE KEY UPDATE 
+                endorsement_count = endorsement_count + 1,
+                last_endorsed_at = NOW()
+        ');
+
+        $stmt->execute([
+            'id' => $this->generateUuidV4(),
+            'candidate_id' => $candidateId,
+            'skill_name' => $skillName,
+        ]);
+
+        return ['success' => true, 'message' => 'Skill endorsed'];
+    }
+
+    public function getSkillEndorsements(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+
+        try {
+            $pdo = Connection::getPdo();
+        } catch (Throwable) {
+            return ['success' => false, 'message' => 'Database unavailable', 'data' => []];
+        }
+
+        $candidateId = $this->resolveCandidateId($pdo, $userId);
+        if (!$candidateId) {
+            return ['success' => true, 'data' => []];
+        }
+
+        $stmt = $pdo->prepare('
+            SELECT skill_name, endorsement_count, top_endorsers
+            FROM candidate_skill_endorsements
+            WHERE candidate_id = :candidate_id
+            ORDER BY endorsement_count DESC
+        ');
+        $stmt->execute(['candidate_id' => $candidateId]);
+        $endorsements = $stmt->fetchAll() ?: [];
+
+        return ['success' => true, 'data' => $endorsements];
     }
 }

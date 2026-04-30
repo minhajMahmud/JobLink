@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Bell, Briefcase, Home, LogOut, Menu, MessageSquareText, Search, User, Users, X, ChevronDown, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { currentUser } from "@/data/mockData";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import {
   DropdownMenu,
@@ -24,7 +23,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
-  const profile = user ?? currentUser;
+  const profile = user ?? {
+    id: "",
+    name: "Guest",
+    email: "",
+    role: "seeker" as const,
+    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
+  };
 
   return (
     <div className="min-h-screen bg-background font-sans">

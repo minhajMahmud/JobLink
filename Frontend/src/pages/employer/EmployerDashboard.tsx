@@ -37,7 +37,7 @@ import {
 import { Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/features/auth/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import NotificationsBell from "@/components/notifications/NotificationsBell";
 import {
@@ -219,35 +219,35 @@ export default function EmployerDashboard() {
     try {
       await toggleJobFeaturedApi(jobId);
       setJobs((current) => current.map((job) => (job.id === jobId ? { ...job, featured: !job.featured } : job)));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const updateJobStatus = async (jobId: string, status: "Active" | "Paused" | "Closed") => {
     try {
       await updateJobStatusApi(jobId, status);
       setJobs((current) => current.map((job) => (job.id === jobId ? { ...job, status } : job)));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const removeJob = async (jobId: string) => {
     try {
       await deleteJobApi(jobId);
       setJobs((current) => current.filter((job) => job.id !== jobId));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const updateApplicantStatus = async (applicantId: string, status: ApplicantStatus) => {
     try {
       await updateApplicantStatusApi(applicantId, status);
       setApplicants((current) => current.map((applicant) => (applicant.id === applicantId ? { ...applicant, status } : applicant)));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const updateApplicantNotes = async (applicantId: string, notes: string) => {
     try {
       await updateApplicantNotesApi(applicantId, notes);
       setApplicants((current) => current.map((applicant) => (applicant.id === applicantId ? { ...applicant, notes } : applicant)));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const scheduleInterview = async () => {
@@ -267,7 +267,7 @@ export default function EmployerDashboard() {
         ...current,
       ]);
       setNewInterview({ candidate: "", role: "", date: "", time: "", mode: "Video" });
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const publishPost = async () => {
@@ -284,7 +284,7 @@ export default function EmployerDashboard() {
 
       setPosts((current) => [entry, ...current]);
       setNewPost({ title: "", body: "" });
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const darkModeEnabled = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -506,19 +506,17 @@ export default function EmployerDashboard() {
                 <TabsTrigger
                   key={tab.value}
                   value={tab.value}
-                  className={`group relative rounded-none border-b-2 border-transparent bg-transparent px-1 pb-4 pt-2 text-sm font-semibold text-muted-foreground shadow-none data-[state=active]:shadow-none data-[state=active]:bg-transparent transition-colors whitespace-nowrap ${
-                    isCompanyTab
+                  className={`group relative rounded-none border-b-2 border-transparent bg-transparent px-1 pb-4 pt-2 text-sm font-semibold text-muted-foreground shadow-none data-[state=active]:shadow-none data-[state=active]:bg-transparent transition-colors whitespace-nowrap ${isCompanyTab
                       ? "data-[state=active]:border-amber-500 data-[state=active]:text-amber-700 dark:data-[state=active]:text-amber-300 hover:text-amber-700 dark:hover:text-amber-300"
                       : "data-[state=active]:border-primary data-[state=active]:text-foreground hover:text-foreground"
-                  }`}
+                    }`}
                 >
                   <span className="inline-flex items-center gap-2">
                     <span
-                      className={`inline-flex h-5 w-5 items-center justify-center rounded-md transition-all ${
-                        isCompanyTab
+                      className={`inline-flex h-5 w-5 items-center justify-center rounded-md transition-all ${isCompanyTab
                           ? "bg-gradient-to-br from-amber-100 to-amber-50 text-amber-700 dark:from-amber-900/40 dark:to-amber-800/30 dark:text-amber-300 group-data-[state=active]:bg-gradient-to-br group-data-[state=active]:from-amber-500 group-data-[state=active]:to-orange-500 group-data-[state=active]:text-white group-data-[state=active]:shadow-sm"
                           : "bg-secondary/70 text-muted-foreground group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary"
-                      }`}
+                        }`}
                     >
                       <Icon className="h-3.5 w-3.5" />
                     </span>
@@ -700,7 +698,7 @@ export default function EmployerDashboard() {
                   <p className="text-sm text-muted-foreground font-medium mt-0.5">Fill out the details below to publish a new job opening.</p>
                 </div>
               </div>
-              
+
               <div className="grid gap-6 lg:grid-cols-4">
                 <div className="lg:col-span-2 relative">
                   <label className="text-sm font-semibold text-muted-foreground mb-2 block">Job Title</label>
@@ -721,7 +719,7 @@ export default function EmployerDashboard() {
                     <option value="Remote">🌍 Remote</option>
                   </select>
                 </div>
-                
+
                 <div className="lg:col-span-2 grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-semibold text-muted-foreground mb-2 block">Min Salary ($k)</label>
@@ -732,7 +730,7 @@ export default function EmployerDashboard() {
                     <input type="number" value={newJob.salaryMax} onChange={(event) => setNewJob((current) => ({ ...current, salaryMax: event.target.value }))} placeholder="120" className="h-12 w-full rounded-xl border border-border/50 bg-background px-4 font-medium outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary hover:border-border" />
                   </div>
                 </div>
-                
+
                 <div className="lg:col-span-2 grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-semibold text-muted-foreground mb-2 block">Employment Type</label>
@@ -752,17 +750,17 @@ export default function EmployerDashboard() {
                     </select>
                   </div>
                 </div>
-                
+
                 <div className="lg:col-span-4">
                   <label className="text-sm font-semibold text-muted-foreground mb-2 block">Required Skills</label>
                   <input value={newJob.requiredSkills} onChange={(event) => setNewJob((current) => ({ ...current, requiredSkills: event.target.value }))} placeholder="React, TypeScript, Node.js (comma separated)" className="h-12 w-full rounded-xl border border-border/50 bg-background px-4 font-medium outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary hover:border-border" />
                 </div>
-                
+
                 <div className="lg:col-span-4 relative">
                   <label className="text-sm font-semibold text-muted-foreground mb-2 block">Job Description</label>
                   <textarea value={newJob.description} onChange={(event) => setNewJob((current) => ({ ...current, description: event.target.value }))} placeholder="Describe the responsibilities and requirements..." className="min-h-32 w-full rounded-xl border border-border/50 bg-background px-4 py-3 font-medium leading-relaxed outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary hover:border-border resize-none" />
                 </div>
-                
+
                 <div className="lg:col-span-4 flex justify-end pt-2">
                   <button type="button" onClick={createJob} className="rounded-xl bg-primary px-8 h-12 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2">
                     <Sparkles className="w-4 h-4" /> Publish Job Post
@@ -795,10 +793,10 @@ export default function EmployerDashboard() {
                             <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{job.salary}</span>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <select title="Job status" 
-                            value={job.status} 
+                          <select title="Job status"
+                            value={job.status}
                             onChange={(e) => updateJobStatus(job.id, e.target.value as "Active" | "Paused" | "Closed")}
                             className="text-xs font-semibold bg-background border border-border/50 rounded-lg px-2 py-1.5 outline-none cursor-pointer hover:border-primary/50 transition-colors"
                           >
@@ -814,7 +812,7 @@ export default function EmployerDashboard() {
                           </button>
                         </div>
                       </div>
-                      
+
                       <div className="bg-secondary/40 rounded-2xl p-4 mb-5 border border-border/50">
                         <p className="text-sm text-muted-foreground font-medium leading-relaxed line-clamp-2">{job.description}</p>
                         <div className="mt-4 flex flex-wrap gap-2">
@@ -877,7 +875,7 @@ export default function EmployerDashboard() {
                   >
                     <option value="All">All Open Roles</option>
                     {jobs.map((job) => (
-                       <option key={job.id} value={job.title}>{job.title}</option>
+                      <option key={job.id} value={job.title}>{job.title}</option>
                     ))}
                   </select>
                 </div>
@@ -913,7 +911,7 @@ export default function EmployerDashboard() {
                       <h3 className="font-display font-bold text-foreground text-lg">{stage}</h3>
                       <span className="bg-background text-muted-foreground font-semibold text-xs px-2.5 py-1 rounded-md border border-border/50">{stageApplicants.length}</span>
                     </div>
-                    
+
                     <div className="flex flex-col gap-4">
                       {stageApplicants.map((applicant) => (
                         <article key={applicant.id} className="rounded-[1.25rem] border border-border/50 bg-card p-5 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing flex flex-col group">
@@ -925,56 +923,56 @@ export default function EmployerDashboard() {
                             </div>
                             <div className="flex flex-col items-end gap-2">
                               <div className="bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-                                 <Zap className="w-3 h-3" /> {applicant.match}%
+                                <Zap className="w-3 h-3" /> {applicant.match}%
                               </div>
                               <button className="text-muted-foreground hover:text-amber-500 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100" title="Star Candidate">
-                                 <Star className="w-4 h-4" />
+                                <Star className="w-4 h-4" />
                               </button>
                             </div>
                           </div>
-                          
+
                           <div className="flex flex-wrap gap-1 mb-4">
-                            {applicant.skills.slice(0,3).map((skill) => (
+                            {applicant.skills.slice(0, 3).map((skill) => (
                               <span key={skill} className="bg-secondary text-foreground px-2 py-0.5 rounded text-[10px] font-medium">
                                 {skill}
                               </span>
                             ))}
                           </div>
-                          
+
                           {/* Collaborative Notes Area */}
                           <div className="mb-4 bg-secondary/30 rounded-xl p-3 border border-border/50 text-xs">
-                             <div className="flex items-center gap-2 mb-2">
-                                <span className="font-semibold text-foreground flex items-center gap-1"><Users className="w-3 h-3" /> Team Notes</span>
-                             </div>
-                             <div className="space-y-2">
-                               {applicant.notes ? (
-                                 <p className="text-muted-foreground italic leading-relaxed text-[11px]">"{applicant.notes}" <span className="font-semibold text-primary">@sarah</span></p>
-                               ) : (
-                                 <p className="text-muted-foreground/50 italic text-[11px]">No notes yet...</p>
-                               )}
-                               <div className="flex gap-2">
-                                 <input type="text" title="Add note or mention" placeholder="Add note or @mention..." className="bg-background border border-border/50 rounded-lg px-2 py-1.5 flex-1 text-[11px] outline-none focus:border-primary" />
-                               </div>
-                             </div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-semibold text-foreground flex items-center gap-1"><Users className="w-3 h-3" /> Team Notes</span>
+                            </div>
+                            <div className="space-y-2">
+                              {applicant.notes ? (
+                                <p className="text-muted-foreground italic leading-relaxed text-[11px]">"{applicant.notes}" <span className="font-semibold text-primary">@sarah</span></p>
+                              ) : (
+                                <p className="text-muted-foreground/50 italic text-[11px]">No notes yet...</p>
+                              )}
+                              <div className="flex gap-2">
+                                <input type="text" title="Add note or mention" placeholder="Add note or @mention..." className="bg-background border border-border/50 rounded-lg px-2 py-1.5 flex-1 text-[11px] outline-none focus:border-primary" />
+                              </div>
+                            </div>
                           </div>
 
                           <div className="flex gap-2 mt-auto">
-                            <select title="Update applicant status" 
+                            <select title="Update applicant status"
                               value={applicant.status}
                               onChange={(e) => updateApplicantStatus(applicant.id, e.target.value as ApplicantStatus)}
                               className="text-xs font-semibold bg-secondary/50 border border-border/50 rounded-lg px-2 py-1.5 outline-none flex-1"
                             >
-                               {["Applied", "Reviewed", "Interview", "Offer", "Hired", "Rejected"].map(s => <option key={s} value={s}>Move to {s}</option>)}
+                              {["Applied", "Reviewed", "Interview", "Offer", "Hired", "Rejected"].map(s => <option key={s} value={s}>Move to {s}</option>)}
                             </select>
                             <button className="p-1.5 rounded-lg border border-border/50 bg-background text-muted-foreground hover:text-primary transition-colors" title="Send Email">
-                               <MessageSquare className="w-4 h-4" />
+                              <MessageSquare className="w-4 h-4" />
                             </button>
                           </div>
                         </article>
                       ))}
                       {stageApplicants.length === 0 && (
                         <div className="p-6 border-2 border-dashed border-border/50 rounded-[1.25rem] text-center">
-                           <p className="text-xs font-medium text-muted-foreground">No candidates</p>
+                          <p className="text-xs font-medium text-muted-foreground">No candidates</p>
                         </div>
                       )}
                     </div>
@@ -1028,18 +1026,18 @@ export default function EmployerDashboard() {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="lg:col-span-5 flex flex-wrap items-center gap-6 pt-2 border-t border-border/50 mt-2">
-                   <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
-                     <input type="checkbox" className="rounded border-border/50 text-primary focus:ring-primary h-4 w-4" defaultChecked />
-                     Send Calendar Invite to Candidate & Team
-                   </label>
-                   {newInterview.mode === 'Video' && (
-                     <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
-                       <input type="checkbox" className="rounded border-border/50 text-primary focus:ring-primary h-4 w-4" defaultChecked />
-                       Generate Interview Room Link (Zoom/Meet)
-                     </label>
-                   )}
+                  <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+                    <input type="checkbox" className="rounded border-border/50 text-primary focus:ring-primary h-4 w-4" defaultChecked />
+                    Send Calendar Invite to Candidate & Team
+                  </label>
+                  {newInterview.mode === 'Video' && (
+                    <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+                      <input type="checkbox" className="rounded border-border/50 text-primary focus:ring-primary h-4 w-4" defaultChecked />
+                      Generate Interview Room Link (Zoom/Meet)
+                    </label>
+                  )}
                 </div>
               </div>
             </div>
@@ -1081,7 +1079,7 @@ export default function EmployerDashboard() {
                 </div>
               </div>
               <div className="rounded-[2rem] border border-border/50 bg-card p-6 shadow-sm relative overflow-hidden">
-                 <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl" />
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl" />
                 <p className="text-sm font-semibold text-muted-foreground">Total Applications</p>
                 <div className="mt-4 flex items-end gap-3">
                   <p className="font-display text-5xl font-bold text-foreground tracking-tight">{applicants.length}</p>
@@ -1150,7 +1148,7 @@ export default function EmployerDashboard() {
                         <span className="text-xs font-medium text-muted-foreground">{item.value}%</span>
                       </div>
                       <div className="h-3 w-full bg-secondary rounded-full overflow-hidden">
-                          <Progress value={item.value} className={`h-3 bg-secondary ${item.color}`} />
+                        <Progress value={item.value} className={`h-3 bg-secondary ${item.color}`} />
                       </div>
                     </div>
                   ))}
@@ -1170,7 +1168,7 @@ export default function EmployerDashboard() {
                   <p className="text-sm text-muted-foreground font-medium mt-0.5">Share updates, milestones, and culture with your followers.</p>
                 </div>
               </div>
-              
+
               <div className="grid gap-5">
                 <div className="relative">
                   <label className="text-sm font-semibold text-muted-foreground mb-2 block">Post Title</label>

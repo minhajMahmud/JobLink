@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   Award,
@@ -15,6 +15,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/features/auth/context/AuthContext";
+import {
+  fetchNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  clearAllNotifications,
+} from "@/features/notifications/api/notificationsApi";
 
 export type NotificationCategory =
   | "report"
@@ -110,7 +116,8 @@ const seekerSeed: AppNotification[] = [
     title: "New message from James Wilson",
     description: "“Hey Alex — would love to chat about a senior design role.”",
     time: "Yesterday",
-    read: true,    href: "/messages",  },
+    read: true, href: "/messages",
+  },
 ];
 
 const employerSeed: AppNotification[] = [
@@ -181,7 +188,8 @@ const adminSeed: AppNotification[] = [
     description: "12 users reported the post “BUY FOLLOWERS NOW”.",
     time: "20 minutes ago",
     read: false,
-    priority: "high",    href: "/admin/dashboard",  },
+    priority: "high", href: "/admin/dashboard",
+  },
   {
     id: "na-3",
     category: "verification",
@@ -199,14 +207,16 @@ const adminSeed: AppNotification[] = [
     description: "“Earn $5000/week from home” received 9 user reports.",
     time: "2 hours ago",
     read: false,
-    priority: "high",    href: "/admin/dashboard",  },
+    priority: "high", href: "/admin/dashboard",
+  },
   {
     id: "na-5",
     category: "moderation",
     title: "Comment flagged for hate speech",
     description: "Reported by Daniel Kim on the “Hiring tip” thread.",
     time: "Yesterday",
-    read: true,    href: "/admin/dashboard",  },
+    read: true, href: "/admin/dashboard",
+  },
   {
     id: "na-6",
     category: "system",
@@ -258,15 +268,34 @@ export function NotificationsProvider({ role, children }: { role: UserRole; chil
     return stored ? JSON.parse(stored) : defaultPreferences;
   });
 
+  // Fetch from API on mount; fall back to seed data if unavailable
+  useEffect(() => {
+    fetchNotifications()
+      .then((res) => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setNotifications(res.data);
+        }
+        // If empty or failed, keep seed data
+      })
+      .catch(() => {
+        // Backend unreachable — keep seed data
+      });
+  }, []);
+
   const markAsRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    markNotificationRead(id).catch(() => { });
   }, []);
 
   const markAllAsRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    markAllNotificationsRead().catch(() => { });
   }, []);
 
-  const clearAll = useCallback(() => setNotifications([]), []);
+  const clearAll = useCallback(() => {
+    setNotifications([]);
+    clearAllNotifications().catch(() => { });
+  }, []);
 
   const updatePreference = useCallback(
     (category: NotificationCategory, deliveryMethod: "email" | "push" | "inApp", enabled: boolean) => {

@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/features/auth/context/AuthContext";
 import { NotificationsProvider } from "@/features/notifications/context/NotificationsContext";
 import FeedPage from "@/pages/FeedPage";
 import JobsPage from "@/pages/JobsPage";
+import JobDetailPage from "@/pages/JobDetailPage";
 import ProfilePage from "@/pages/ProfilePage";
 import NetworkPage from "@/pages/NetworkPage";
 import MessagesPage from "@/pages/MessagesPage";
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<FeedPage />} />
           <Route path="/jobs" element={<JobsPage />} />
+          <Route path="/jobs/:jobId" element={<JobDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/network" element={<NetworkPage />} />
           <Route path="/messages" element={<MessagesPage />} />

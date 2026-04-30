@@ -35,6 +35,10 @@ final class Response
         if (!headers_sent()) {
             http_response_code($this->status);
             header('Content-Type: application/json; charset=utf-8');
+            header('Access-Control-Allow-Origin: *');
+            header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+            header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-ID, X-User-Role');
+            header('Access-Control-Max-Age: 3600');
         }
 
         echo json_encode($this->data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

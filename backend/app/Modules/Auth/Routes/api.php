@@ -3,5 +3,12 @@
 declare(strict_types=1);
 
 return [
-    'POST /auth/login' => [\App\Modules\Auth\Controllers\AuthController::class, 'login'],
+    'prefix'     => '/auth',
+    'middleware' => [],          // No auth required for login/register
+    'routes'     => [
+        ['POST', '/login',    'AuthController@login'],
+        ['POST', '/register', 'AuthController@register'],
+        ['GET',  '/me',       'AuthController@me'],       // auth checked in controller
+        ['POST', '/logout',   'AuthController@logout'],
+    ],
 ];

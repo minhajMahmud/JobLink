@@ -18,7 +18,7 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/features/auth/context/AuthContext";
 
 type RoleKey = "seeker" | "employer" | "admin";
 type MessageStatus = "sent" | "delivered" | "seen";

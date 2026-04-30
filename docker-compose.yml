@@ -2,13 +2,24 @@ version: '3.8'
 
 services:
   backend:
-    image: php:8.2-cli
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: joblink-backend
     working_dir: /var/www/backend
     volumes:
       - ./backend:/var/www/backend
     ports:
       - "8000:8000"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_DATABASE: joblink
+      DB_USERNAME: root
+      DB_PASSWORD: root
+    depends_on:
+      mysql:
+        condition: service_started
     command: php -S 0.0.0.0:8000 -t public/
 
   mysql:

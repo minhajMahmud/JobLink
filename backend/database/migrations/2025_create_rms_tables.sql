@@ -5,7 +5,7 @@
 CREATE TABLE candidates (
     id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
     user_id CHAR(36) NOT NULL UNIQUE,
-    skills JSON NOT NULL DEFAULT '[]', -- Array of skill strings
+    skills JSON NOT NULL, -- Array of skill strings
     experience_years INT NOT NULL DEFAULT 0,
     education_level ENUM('High School', 'Bachelor', 'Master', 'PhD') NOT NULL DEFAULT 'Bachelor',
     location VARCHAR(255) NOT NULL,
@@ -18,7 +18,6 @@ CREATE TABLE candidates (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_skills (skills),
     INDEX idx_experience (experience_years),
     INDEX idx_availability (availability_status),
     INDEX idx_location (location),
@@ -195,7 +194,7 @@ CREATE TABLE promotion_analytics (
 -- );
 
 -- Create indexes for performance optimization
-ALTER TABLE candidates ADD FULLTEXT INDEX ft_search (bio) IF NOT EXISTS;
-ALTER TABLE company_posts ADD INDEX idx_likes_count (likes_count);
-ALTER TABLE interviews ADD INDEX idx_round (round);
-ALTER TABLE job_promotions ADD INDEX idx_promotion_status (status);
+-- ALTER TABLE candidates ADD FULLTEXT INDEX ft_search (bio);
+-- ALTER TABLE company_posts ADD INDEX idx_likes_count (likes_count);
+-- ALTER TABLE interviews ADD INDEX idx_round (round);
+-- ALTER TABLE job_promotions ADD INDEX idx_promotion_status (status);
