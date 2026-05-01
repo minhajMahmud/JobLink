@@ -20,15 +20,25 @@ final class Connection
         /** @var array<string, string> $config */
         $config = require __DIR__ . '/../../../config/database.php';
 
-        $driver = strtolower((string)($config['driver'] ?? 'mysql'));
-        $host = (string)($config['host'] ?? '127.0.0.1');
-        $port = (string)($config['port'] ?? '3306');
-        $database = (string)($config['database'] ?? 'joblink');
-        $username = (string)($config['username'] ?? 'root');
-        $password = (string)($config['password'] ?? '');
+        // Use config values instead of hardcoded sqlite
+        $driver = (string) ($config['driver'] ?? 'mysql');
+        $database = (string) ($config['database'] ?? 'joblink');
+        $host = (string) ($config['host'] ?? '127.0.0.1');
+        $port = (string) ($config['port'] ?? '3306');
+        $username = (string) ($config['username'] ?? 'root');
+        $password = (string) ($config['password'] ?? '');
 
         $dsn = match ($driver) {
             'mysql' => sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', $host, $port, $database),
+            'sqlite' => (function () use ($database) {
+                    $path = $database;
+                    if (!str_starts_with($path, '/') && !str_contains($path, ':')) {
+                        $baseDir = dirname(__DIR__, 3);
+                        $path = $baseDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $database);
+                    }
+                    error_log("SQLite DSN: sqlite:" . $path);
+                    return sprintf('sqlite:%s', $path);
+                })(),
             default => throw new PDOException(sprintf('Unsupported DB driver: %s', $driver)),
         };
 

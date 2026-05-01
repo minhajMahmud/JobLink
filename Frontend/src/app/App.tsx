@@ -14,6 +14,7 @@ import NetworkPage from "@/pages/NetworkPage";
 import MessagesPage from "@/pages/MessagesPage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import ApplicationsPage from "@/pages/ApplicationsPage";
+import AuthPage from "@/pages/AuthPage";
 import LoginPage from "@/pages/LoginPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
 import NotificationPreferencesPage from "@/pages/settings/NotificationPreferencesPage";
@@ -30,8 +31,9 @@ function AppRoutes() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/auth" element={<AuthPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/auth" replace />} />
       </Routes>
     );
   }

@@ -19,11 +19,9 @@ if (is_file($envPath)) {
 			continue;
 		}
 
-		if (getenv($name) === false) {
-			putenv($name . '=' . $value);
-			$_ENV[$name] = $value;
-			$_SERVER[$name] = $value;
-		}
+		putenv($name . '=' . $value);
+		$_ENV[$name] = $value;
+		$_SERVER[$name] = $value;
 	}
 }
 

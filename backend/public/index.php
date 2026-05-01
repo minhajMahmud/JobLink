@@ -7,6 +7,12 @@ use App\Core\Http\Response;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\RoleValidationMiddleware;
 
+// Set CORS headers early
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-ID, X-User-Role, x-user-id, x-user-role');
+header('Access-Control-Max-Age: 3600');
+
 $bootstrap = require __DIR__ . '/../bootstrap/app.php';
 $routeRegistry = $bootstrap['routes'] ?? [];
 
@@ -16,7 +22,7 @@ $path = $request->path();
 
 // Handle CORS preflight requests
 if ($method === 'OPTIONS') {
-    Response::json(null)->send();
+    http_response_code(200);
     exit;
 }
 

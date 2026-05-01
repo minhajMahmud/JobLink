@@ -26,7 +26,14 @@ api.interceptors.request.use((config) => {
 
   const authUser = getStoredAuthUser();
   if (authUser?.id) {
-    config.headers["x-user-id"] = authUser.id;
+    const userId = String(authUser.id).trim();
+    if (userId && userId !== "undefined" && userId !== "null") {
+      config.headers["x-user-id"] = userId;
+    } else {
+      console.warn("⚠️ Invalid user ID format:", userId);
+    }
+  } else {
+    console.warn("⚠️ No user ID in localStorage. User may not be authenticated.");
   }
   if (authUser?.role) {
     config.headers["x-user-role"] = authUser.role;

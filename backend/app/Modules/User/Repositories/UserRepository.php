@@ -120,16 +120,26 @@ final class UserRepository
         $exists = $checkStmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$exists) {
-            // Create candidate profile if it doesn't exist
-            $insertSql = "INSERT INTO candidates (id, user_id, skills, experience_years, education_level) 
-                          VALUES (:id, :user_id, :skills, :experience_years, :education_level)";
+            // Create candidate profile if it doesn't exist with all provided data
+            $insertSql = "INSERT INTO candidates (
+                id, user_id, skills, experience_years, education_level, 
+                availability_status, salary_min, salary_max, resume_url
+            ) VALUES (
+                :id, :user_id, :skills, :experience_years, :education_level,
+                :availability_status, :salary_min, :salary_max, :resume_url
+            )";
+            
             $insertStmt = $this->pdo->prepare($insertSql);
             return $insertStmt->execute([
                 'id' => $this->generateUuid(),
                 'user_id' => $userId,
-                'skills' => json_encode($data['skills'] ?? []),
-                'experience_years' => (int)($data['experience_years'] ?? 0),
-                'education_level' => (string)($data['education_level'] ?? 'Bachelor'),
+                'skills' => is_array($data['skills'] ?? null) ? json_encode($data['skills']) : json_encode([]),
+                'experience_years' => isset($data['experience_years']) ? (int)$data['experience_years'] : 0,
+                'education_level' => isset($data['education_level']) ? (string)$data['education_level'] : 'Bachelor',
+                'availability_status' => isset($data['availability_status']) ? (string)$data['availability_status'] : null,
+                'salary_min' => isset($data['salary_min']) ? (float)$data['salary_min'] : null,
+                'salary_max' => isset($data['salary_max']) ? (float)$data['salary_max'] : null,
+                'resume_url' => isset($data['resume_url']) ? (string)$data['resume_url'] : null,
             ]);
         }
         

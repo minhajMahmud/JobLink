@@ -71,9 +71,13 @@ final class ProfileService
      */
     public function updateProfile(string $userId, array $data): array
     {
+        // Log the update attempt
+        error_log("ProfileService::updateProfile - Attempting to update user: $userId");
+        
         // Validate input
         $validation = $this->validateProfileData($data);
         if (!empty($validation)) {
+            error_log("ProfileService::updateProfile - Validation failed: " . json_encode($validation));
             return [
                 'success' => false,
                 'message' => 'Validation failed',
@@ -84,11 +88,14 @@ final class ProfileService
         // Get user to check role
         $user = $this->userRepository->findById($userId);
         if (!$user) {
+            error_log("ProfileService::updateProfile - User not found in database: $userId");
             return [
                 'success' => false,
-                'message' => 'User not found',
+                'message' => 'User not found. Please login again with valid credentials.',
             ];
         }
+        
+        error_log("ProfileService::updateProfile - User found: {$user->email}, role: {$user->role}");
         
         // Update basic user info
         $userData = [];
@@ -101,8 +108,10 @@ final class ProfileService
         }
         
         if (!empty($userData)) {
+            error_log("ProfileService::updateProfile - Updating basic user fields: " . json_encode(array_keys($userData)));
             $updated = $this->userRepository->updateUser($userId, $userData);
             if (!$updated) {
+                error_log("ProfileService::updateProfile - Failed to update basic user info");
                 return [
                     'success' => false,
                     'message' => 'Failed to update profile',
@@ -122,6 +131,7 @@ final class ProfileService
             }
             
             if (!empty($candidateData)) {
+                error_log("ProfileService::updateProfile - Updating candidate fields: " . json_encode(array_keys($candidateData)));
                 $this->userRepository->updateCandidateProfile($userId, $candidateData);
             }
             
@@ -135,6 +145,7 @@ final class ProfileService
             }
         }
         
+        error_log("ProfileService::updateProfile - Profile updated successfully for user: $userId");
         return [
             'success' => true,
             'message' => 'Profile updated successfully',
@@ -214,64 +225,83 @@ final class ProfileService
     {
         $errors = [];
         
-        // Validate name
-        if (isset($data['first_name']) && trim($data['first_name']) === '') {
-            $errors['first_name'] = 'First name is required';
+        // Validate name - only if provided and not empty
+        if (isset($data['first_name'])) {
+            $firstName = trim((string)$data['first_name']);
+            if ($firstName === '') {
+                $errors['first_name'] = 'First name cannot be empty';
+            } elseif (strlen($firstName) > 100) {
+                $errors['first_name'] = 'First name is too long (maximum 100 characters)';
+            }
         }
         
-        if (isset($data['first_name']) && strlen($data['first_name']) > 100) {
-            $errors['first_name'] = 'First name is too long (maximum 100 characters)';
-        }
-        
-        if (isset($data['last_name']) && strlen($data['last_name']) > 100) {
+        if (isset($data['last_name']) && strlen((string)$data['last_name']) > 100) {
             $errors['last_name'] = 'Last name is too long (maximum 100 characters)';
         }
         
         // Validate phone
-        if (isset($data['phone']) && $data['phone'] !== null && strlen($data['phone']) > 30) {
+        if (isset($data['phone']) && $data['phone'] !== null && $data['phone'] !== '' && strlen((string)$data['phone']) > 30) {
             $errors['phone'] = 'Phone number is too long (maximum 30 characters)';
         }
         
-        // Validate URL fields
-        if (isset($data['website']) && $data['website'] !== null && !filter_var($data['website'], FILTER_VALIDATE_URL)) {
-            $errors['website'] = 'Invalid website URL';
+        // Validate URL fields - only if not empty
+        if (isset($data['website']) && $data['website'] !== null && $data['website'] !== '') {
+            if (!filter_var($data['website'], FILTER_VALIDATE_URL)) {
+                $errors['website'] = 'Invalid website URL';
+            }
         }
         
-        if (isset($data['avatar_url']) && $data['avatar_url'] !== null && !filter_var($data['avatar_url'], FILTER_VALIDATE_URL)) {
-            $errors['avatar_url'] = 'Invalid avatar URL';
+        if (isset($data['avatar_url']) && $data['avatar_url'] !== null && $data['avatar_url'] !== '') {
+            if (!filter_var($data['avatar_url'], FILTER_VALIDATE_URL)) {
+                $errors['avatar_url'] = 'Invalid avatar URL';
+            }
         }
         
         // Validate bio length
-        if (isset($data['bio']) && strlen($data['bio']) > 5000) {
+        if (isset($data['bio']) && strlen((string)$data['bio']) > 5000) {
             $errors['bio'] = 'Bio is too long (maximum 5000 characters)';
         }
         
-        // Validate skills (must be array)
-        if (isset($data['skills']) && !is_array($data['skills'])) {
+        // Validate skills (must be array if provided)
+        if (isset($data['skills']) && $data['skills'] !== null && !is_array($data['skills'])) {
             $errors['skills'] = 'Skills must be an array';
         }
         
         // Validate experience years
-        if (isset($data['experience_years']) && (!is_numeric($data['experience_years']) || $data['experience_years'] < 0)) {
-            $errors['experience_years'] = 'Experience years must be a positive number';
+        if (isset($data['experience_years']) && $data['experience_years'] !== null && $data['experience_years'] !== '') {
+            if (!is_numeric($data['experience_years']) || $data['experience_years'] < 0) {
+                $errors['experience_years'] = 'Experience years must be a positive number';
+            }
         }
         
-        // Validate education level
-        if (isset($data['education_level']) && !in_array($data['education_level'], ['High School', 'Bachelor', 'Master', 'PhD'], true)) {
-            $errors['education_level'] = 'Invalid education level';
+        // Validate education level - only if provided
+        if (isset($data['education_level']) && $data['education_level'] !== null && $data['education_level'] !== '') {
+            $validLevels = ['High School', 'Bachelor', 'Master', 'PhD', 'Diploma', 'Associate', 'Certificate'];
+            if (!in_array($data['education_level'], $validLevels, true)) {
+                $errors['education_level'] = 'Invalid education level';
+            }
         }
         
         // Validate salary range
-        if (isset($data['salary_min']) && (!is_numeric($data['salary_min']) || $data['salary_min'] < 0)) {
-            $errors['salary_min'] = 'Minimum salary must be a positive number';
+        if (isset($data['salary_min']) && $data['salary_min'] !== null && $data['salary_min'] !== '') {
+            if (!is_numeric($data['salary_min']) || $data['salary_min'] < 0) {
+                $errors['salary_min'] = 'Minimum salary must be a positive number';
+            }
         }
         
-        if (isset($data['salary_max']) && (!is_numeric($data['salary_max']) || $data['salary_max'] < 0)) {
-            $errors['salary_max'] = 'Maximum salary must be a positive number';
+        if (isset($data['salary_max']) && $data['salary_max'] !== null && $data['salary_max'] !== '') {
+            if (!is_numeric($data['salary_max']) || $data['salary_max'] < 0) {
+                $errors['salary_max'] = 'Maximum salary must be a positive number';
+            }
         }
         
-        if (isset($data['salary_min'], $data['salary_max']) && $data['salary_min'] > $data['salary_max']) {
-            $errors['salary'] = 'Minimum salary cannot be greater than maximum salary';
+        // Validate salary range relationship
+        if (isset($data['salary_min'], $data['salary_max']) && 
+            $data['salary_min'] !== null && $data['salary_min'] !== '' &&
+            $data['salary_max'] !== null && $data['salary_max'] !== '') {
+            if ((float)$data['salary_min'] > (float)$data['salary_max']) {
+                $errors['salary'] = 'Minimum salary cannot be greater than maximum salary';
+            }
         }
         
         return $errors;

@@ -35,9 +35,12 @@ final class Response
         if (!headers_sent()) {
             http_response_code($this->status);
             header('Content-Type: application/json; charset=utf-8');
+            
+            // CORS headers - allow all origins for development
             header('Access-Control-Allow-Origin: *');
             header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-            header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-ID, X-User-Role');
+            header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-ID, X-User-Role, x-user-id, x-user-role');
+            header('Access-Control-Allow-Credentials: false');
             header('Access-Control-Max-Age: 3600');
         }
 

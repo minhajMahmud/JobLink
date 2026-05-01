@@ -541,7 +541,7 @@ export default function ProfilePage() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         profileData={profileData as Record<string, unknown> | undefined}
-        onSave={(data) => {
+        onSave={(data: Record<string, unknown>) => {
           setProfileData(data);
           setIsEditModalOpen(false);
         }}

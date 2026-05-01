@@ -29,19 +29,19 @@ final class AuthController
      */
     private function buildJwt(string $userId, string $role, string $name, string $email): string
     {
-        $secret = (string)(getenv('APP_SECRET') ?: 'joblink-dev-secret-change-in-production');
+        $secret = (string) (getenv('APP_SECRET') ?: 'joblink-dev-secret-change-in-production');
 
-        $header  = base64_encode(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
+        $header = base64_encode(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
         $payload = base64_encode(json_encode([
-            'sub'   => $userId,
-            'role'  => $role,
-            'name'  => $name,
+            'sub' => $userId,
+            'role' => $role,
+            'name' => $name,
             'email' => $email,
-            'iat'   => time(),
-            'exp'   => time() + 60 * 60 * 24 * 7, // 7 days
+            'iat' => time(),
+            'exp' => time() + 60 * 60 * 24 * 7, // 7 days
         ]));
 
-        $header  = rtrim(strtr($header, '+/', '-_'), '=');
+        $header = rtrim(strtr($header, '+/', '-_'), '=');
         $payload = rtrim(strtr($payload, '+/', '-_'), '=');
 
         $sig = rtrim(strtr(base64_encode(hash_hmac('sha256', "$header.$payload", $secret, true)), '+/', '-_'), '=');
@@ -53,8 +53,8 @@ final class AuthController
     {
         return match (strtolower($dbRole)) {
             'recruiter' => 'employer',
-            'admin'     => 'admin',
-            default     => 'seeker',
+            'admin' => 'admin',
+            default => 'seeker',
         };
     }
 
@@ -63,9 +63,9 @@ final class AuthController
     // -------------------------------------------------------------------------
     public function login(Request $request): array
     {
-        $data     = $request->json();
-        $email    = strtolower(trim((string)($data['email'] ?? '')));
-        $password = (string)($data['password'] ?? '');
+        $data = $request->json();
+        $email = strtolower(trim((string) ($data['email'] ?? '')));
+        $password = (string) ($data['password'] ?? '');
 
         if ($email === '' || $password === '') {
             return ['success' => false, 'message' => 'Email and password are required'];
@@ -80,7 +80,7 @@ final class AuthController
         }
 
         $stmt = $pdo->prepare(
-            'SELECT id, email, password, first_name, last_name, role, status
+            'SELECT id, email, password, first_name, last_name, role, status, avatar_url
              FROM users WHERE email = :email LIMIT 1'
         );
         $stmt->execute(['email' => $email]);
@@ -90,33 +90,29 @@ final class AuthController
             return ['success' => false, 'message' => 'Invalid email or password'];
         }
 
-        if ((string)($user['status'] ?? '') === 'Suspended') {
+        if ((string) ($user['status'] ?? '') === 'Suspended') {
             return ['success' => false, 'message' => 'Account suspended'];
         }
 
-        if (!password_verify($password, (string)($user['password'] ?? ''))) {
+        if (!password_verify($password, (string) ($user['password'] ?? ''))) {
             return ['success' => false, 'message' => 'Invalid email or password'];
         }
 
-        // Fetch avatar from candidates table if available
-        $avatarStmt = $pdo->prepare('SELECT avatar_url FROM candidates WHERE user_id = :uid LIMIT 1');
-        $avatarStmt->execute(['uid' => $user['id']]);
-        $avatarRow = $avatarStmt->fetch();
-        $avatar = ($avatarRow && $avatarRow['avatar_url']) ? (string)$avatarRow['avatar_url']
+        $avatar = ($user['avatar_url'] ?? '') ? (string) $user['avatar_url']
             : 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face';
 
-        $name   = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
-        $uiRole = $this->mapDbRoleToUi((string)($user['role'] ?? 'Candidate'));
-        $token  = $this->buildJwt((string)$user['id'], $uiRole, $name, $email);
+        $name = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
+        $uiRole = $this->mapDbRoleToUi((string) ($user['role'] ?? 'Candidate'));
+        $token = $this->buildJwt((string) $user['id'], $uiRole, $name, $email);
 
         return [
             'success' => true,
-            'token'   => $token,
-            'user'    => [
-                'id'     => (string)$user['id'],
-                'name'   => $name,
-                'email'  => $email,
-                'role'   => $uiRole,
+            'token' => $token,
+            'user' => [
+                'id' => (string) $user['id'],
+                'name' => $name,
+                'email' => $email,
+                'role' => $uiRole,
                 'avatar' => $avatar,
             ],
         ];
@@ -127,12 +123,12 @@ final class AuthController
     // -------------------------------------------------------------------------
     public function register(Request $request): array
     {
-        $data      = $request->json();
-        $email     = strtolower(trim((string)($data['email'] ?? '')));
-        $password  = (string)($data['password'] ?? '');
-        $firstName = trim((string)($data['first_name'] ?? $data['firstName'] ?? ''));
-        $lastName  = trim((string)($data['last_name'] ?? $data['lastName'] ?? ''));
-        $role      = (string)($data['role'] ?? 'Candidate');
+        $data = $request->json();
+        $email = strtolower(trim((string) ($data['email'] ?? '')));
+        $password = (string) ($data['password'] ?? '');
+        $firstName = trim((string) ($data['first_name'] ?? $data['firstName'] ?? ''));
+        $lastName = trim((string) ($data['last_name'] ?? $data['lastName'] ?? ''));
+        $role = (string) ($data['role'] ?? 'Candidate');
 
         if ($email === '' || $password === '' || $firstName === '') {
             return ['success' => false, 'message' => 'Email, password, and first name are required'];
@@ -144,13 +140,14 @@ final class AuthController
 
         $dbRole = match (strtolower($role)) {
             'employer', 'recruiter' => 'Recruiter',
-            'admin'                 => 'Admin',
-            default                 => 'Candidate',
+            'admin' => 'Admin',
+            default => 'Candidate',
         };
 
         try {
             $pdo = Connection::getPdo();
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            error_log("Register DB connection error: " . $e->getMessage());
             return ['success' => false, 'message' => 'Database unavailable'];
         }
 
@@ -162,48 +159,47 @@ final class AuthController
         }
 
         $userId = $this->generateUuidV4();
-        $hash   = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+        $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
 
         $pdo->prepare(
             'INSERT INTO users (id, email, password, first_name, last_name, role, status)
              VALUES (:id, :email, :password, :first_name, :last_name, :role, :status)'
         )->execute([
-            'id'         => $userId,
-            'email'      => $email,
-            'password'   => $hash,
-            'first_name' => $firstName,
-            'last_name'  => $lastName,
-            'role'       => $dbRole,
-            'status'     => 'Active',
-        ]);
+                    'id' => $userId,
+                    'email' => $email,
+                    'password' => $hash,
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'role' => $dbRole,
+                    'status' => 'Active',
+                ]);
 
         // Create candidate profile row if seeker
         if ($dbRole === 'Candidate') {
             $pdo->prepare(
-                'INSERT INTO candidates (id, user_id, skills, experience_years, education_level, location, availability_status)
-                 VALUES (:id, :user_id, :skills, 0, :edu, :loc, :avail)'
+                'INSERT INTO candidates (id, user_id, skills, experience_years, education_level, availability_status)
+                 VALUES (:id, :user_id, :skills, 0, :edu, :avail)'
             )->execute([
-                'id'      => $this->generateUuidV4(),
-                'user_id' => $userId,
-                'skills'  => '[]',
-                'edu'     => 'Bachelor',
-                'loc'     => '',
-                'avail'   => 'Actively Looking',
-            ]);
+                        'id' => $this->generateUuidV4(),
+                        'user_id' => $userId,
+                        'skills' => '[]',
+                        'edu' => 'Bachelor',
+                        'avail' => 'Actively Looking',
+                    ]);
         }
 
-        $name   = trim("$firstName $lastName");
+        $name = trim("$firstName $lastName");
         $uiRole = $this->mapDbRoleToUi($dbRole);
-        $token  = $this->buildJwt($userId, $uiRole, $name, $email);
+        $token = $this->buildJwt($userId, $uiRole, $name, $email);
 
         return [
             'success' => true,
-            'token'   => $token,
-            'user'    => [
-                'id'     => $userId,
-                'name'   => $name,
-                'email'  => $email,
-                'role'   => $uiRole,
+            'token' => $token,
+            'user' => [
+                'id' => $userId,
+                'name' => $name,
+                'email' => $email,
+                'role' => $uiRole,
                 'avatar' => 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
             ],
         ];
@@ -214,7 +210,7 @@ final class AuthController
     // -------------------------------------------------------------------------
     public function me(Request $request): array
     {
-        $userId = (string)($request->user('id') ?? '');
+        $userId = (string) ($request->user('id') ?? '');
         if ($userId === '') {
             return ['success' => false, 'message' => 'Unauthorized'];
         }
@@ -239,17 +235,17 @@ final class AuthController
             return ['success' => false, 'message' => 'User not found'];
         }
 
-        $name   = trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? ''));
-        $uiRole = $this->mapDbRoleToUi((string)($row['role'] ?? 'Candidate'));
+        $name = trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? ''));
+        $uiRole = $this->mapDbRoleToUi((string) ($row['role'] ?? 'Candidate'));
         $avatar = ($row['avatar_url'] ?? '') ?: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face';
 
         return [
             'success' => true,
-            'user'    => [
-                'id'     => (string)$row['id'],
-                'name'   => $name,
-                'email'  => (string)$row['email'],
-                'role'   => $uiRole,
+            'user' => [
+                'id' => (string) $row['id'],
+                'name' => $name,
+                'email' => (string) $row['email'],
+                'role' => $uiRole,
                 'avatar' => $avatar,
             ],
         ];

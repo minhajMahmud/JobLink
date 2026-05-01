@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 return [
-    'driver' => getenv('DB_DRIVER') ?: 'mysql',
-    'host' => getenv('DB_HOST') ?: '127.0.0.1',
-    'port' => getenv('DB_PORT') ?: '3306',
-    'database' => getenv('DB_DATABASE') ?: 'joblink',
-    'username' => getenv('DB_USERNAME') ?: 'root',
-    'password' => getenv('DB_PASSWORD') ?: '',
+    'driver' => ($_ENV['DB_DRIVER'] ?? getenv('DB_DRIVER')) ?: 'sqlite',
+    'host' => ($_ENV['DB_HOST'] ?? getenv('DB_HOST')) ?: '127.0.0.1',
+    'port' => ($_ENV['DB_PORT'] ?? getenv('DB_PORT')) ?: '3306',
+    'database' => ($_ENV['DB_DATABASE'] ?? getenv('DB_DATABASE')) ?: 'storage/database.sqlite',
+    'username' => ($_ENV['DB_USERNAME'] ?? getenv('DB_USERNAME')) ?: 'root',
+    'password' => ($_ENV['DB_PASSWORD'] ?? getenv('DB_PASSWORD')) ?: '',
 ];

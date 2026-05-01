@@ -90,9 +90,11 @@ final class ProfileController
             if ($userId === '') {
                 return [
                     'status' => false,
-                    'message' => 'Authentication required',
+                    'message' => 'Authentication required. Please login first.',
                 ];
             }
+            
+            error_log("ProfileController::updateProfile - User ID: $userId");
             
             // Parse request data
             $data = $request->json();
@@ -132,6 +134,8 @@ final class ProfileController
             ];
             
         } catch (Throwable $e) {
+            error_log("ProfileController::updateProfile - Exception: " . $e->getMessage());
+            error_log("ProfileController::updateProfile - Trace: " . $e->getTraceAsString());
             return [
                 'status' => false,
                 'message' => 'Failed to update profile',

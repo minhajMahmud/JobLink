@@ -68,6 +68,10 @@ export default function EditProfileModal({
       ...prev,
       [name]: value,
     }));
+    // Clear error when user starts typing
+    if (error) {
+      setError("");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,6 +81,40 @@ export default function EditProfileModal({
     setLoading(true);
 
     try {
+      // Check if user is authenticated
+      const storedAuth = localStorage.getItem("joblink.auth.user");
+      if (!storedAuth) {
+        setError("Please log in again to update your profile");
+        setLoading(false);
+        return;
+      }
+
+      let authUser;
+      try {
+        authUser = JSON.parse(storedAuth);
+      } catch (e) {
+        setError("Authentication data corrupted. Please log in again.");
+        setLoading(false);
+        localStorage.removeItem("joblink.auth.user");
+        return;
+      }
+
+      if (!authUser?.id) {
+        setError("User session expired. Please log in again.");
+        setLoading(false);
+        localStorage.removeItem("joblink.auth.user");
+        return;
+      }
+
+      // Validate user ID format
+      const userId = String(authUser.id).trim();
+      if (!userId || userId === "undefined" || userId === "null") {
+        setError("Invalid authentication. Please log in again.");
+        setLoading(false);
+        localStorage.removeItem("joblink.auth.user");
+        return;
+      }
+
       const submitData = {
         ...formData,
         skills: formData.skills
@@ -86,9 +124,10 @@ export default function EditProfileModal({
         experience_years: parseInt(String(formData.experience_years), 10),
       };
 
+      console.log("Submitting profile update with user ID:", userId);
       const response = await updateCandidateProfile(submitData);
 
-      if (response.success) {
+      if (response.status) {
         setSuccess(true);
         setTimeout(() => {
           if (onSave) {
@@ -100,9 +139,9 @@ export default function EditProfileModal({
         setError(response.message || "Failed to update profile");
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An error occurred while updating profile"
-      );
+      const errorMessage = err instanceof Error ? err.message : "An error occurred while updating profile";
+      console.error("Profile update error:", errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -433,10 +472,9 @@ export default function EditProfileModal({
                   )}
                 </AnimatePresence>
               </div>
-            </form>
 
-            {/* Footer */}
-            <div className="border-t border-border/30 bg-secondary/30 px-8 py-6 flex items-center justify-between gap-4">
+              {/* Footer */}
+              <div className="border-t border-border/30 bg-secondary/30 px-8 py-6 flex items-center justify-between gap-4 sticky bottom-0">
               <p className="text-xs text-muted-foreground">
                 {activeSection === "personal" && "Step 1 of 3: Personal Information"}
                 {activeSection === "professional" && "Step 2 of 3: Professional Details"}
@@ -453,9 +491,9 @@ export default function EditProfileModal({
                   Cancel
                 </motion.button>
                 <motion.button
+                  type="submit"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={handleSubmit}
                   disabled={loading || success}
                   className="px-8 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:from-blue-700 hover:to-cyan-600 transition-all disabled:opacity-50 font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl"
                 >
@@ -478,6 +516,7 @@ export default function EditProfileModal({
                 </motion.button>
               </div>
             </div>
+            </form>
           </motion.div>
           </div>
         </>

@@ -28,39 +28,16 @@ interface AuthContextValue {
 }
 
 // ---------------------------------------------------------------------------
-// Mock users — used as fallback when backend is unreachable
-// ---------------------------------------------------------------------------
-const mockUsers: Record<UserRole, AuthUser> = {
-  seeker: {
-    id: "seeker-1",
-    name: "Alex Morgan",
-    email: "seeker@nexus.demo",
-    role: "seeker",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
-    company: "TechFlow Inc.",
-  },
-  employer: {
-    id: "employer-1",
-    name: "James Wilson",
-    email: "employer@nexus.demo",
-    role: "employer",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
-    company: "CloudScale",
-  },
-  admin: {
-    id: "admin-1",
-    name: "Admin User",
-    email: "admin@nexus.demo",
-    role: "admin",
-    avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&h=100&fit=crop&crop=face",
-  },
-};
-
-// ---------------------------------------------------------------------------
 // Storage helpers
 // ---------------------------------------------------------------------------
 const AUTH_STORAGE_KEY = "joblink.auth.user";
 const TOKEN_KEY = "token";
+
+function isValidUUID(id: string): boolean {
+  // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(id);
+}
 
 function loadStoredUser(): AuthUser | null {
   if (typeof window === "undefined") return null;
@@ -69,6 +46,15 @@ function loadStoredUser(): AuthUser | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AuthUser;
     if (!parsed?.role) return null;
+
+    // Validate that user ID is a proper UUID (not a mock ID like "seeker-1")
+    if (!isValidUUID(parsed.id)) {
+      console.warn("⚠️ Invalid user ID format in localStorage. Clearing stored user.");
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      return null;
+    }
+
     return parsed;
   } catch {
     return null;
@@ -117,20 +103,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await loginApi({ email: payload.email, password: payload.password });
       if (res.success && res.user && res.token) {
+        // Validate user ID is a proper UUID before storing
+        if (!isValidUUID(res.user.id)) {
+          console.error("❌ Backend returned invalid user ID format:", res.user.id);
+          return { success: false, message: "Invalid user data from server" };
+        }
         persistUser(res.user, res.token);
         setUser(res.user);
         return { success: true };
       }
       return { success: false, message: res.message ?? "Login failed" };
     } catch {
-      // Backend unreachable — fall back to mock login by role
-      if (payload.role && mockUsers[payload.role]) {
-        const mockUser = mockUsers[payload.role];
-        persistUser(mockUser);
-        setUser(mockUser);
-        return { success: true };
-      }
-      return { success: false, message: "Unable to connect to server" };
+      // ❌ NO MOCK USER FALLBACK - Backend must be running
+      return { success: false, message: "Unable to connect to server. Please ensure backend is running." };
     } finally {
       setLoading(false);
     }
@@ -153,6 +138,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: payload.role,
       });
       if (res.success && res.user && res.token) {
+        // Validate user ID is a proper UUID before storing
+        if (!isValidUUID(res.user.id)) {
+          console.error("❌ Backend returned invalid user ID format:", res.user.id);
+          return { success: false, message: "Invalid user data from server" };
+        }
         persistUser(res.user, res.token);
         setUser(res.user);
         return { success: true };

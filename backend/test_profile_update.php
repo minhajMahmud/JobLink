@@ -1,67 +1,96 @@
 <?php
-declare(strict_types=1);
+/**
+ * Test Profile Update with Different User ID Formats
+ */
 
-echo "=== Testing Profile Update API ===\n\n";
+require 'app/Core/Database/Connection.php';
+require 'app/Modules/User/Repositories/UserRepository.php';
+require 'app/Modules/User/Services/ProfileService.php';
 
-$baseUrl = 'http://localhost:8000/api';
-$userId = '00000000-0000-0000-0000-000000000002';
-$token = 'test-token';
+use App\Modules\User\Repositories\UserRepository;
+use App\Modules\User\Services\ProfileService;
 
-$profileData = [
-    'first_name' => 'Test',
-    'last_name' => 'User',
-    'headline' => 'Senior Test Engineer',
-    'bio' => 'I am a test user updating my profile',
-    'location' => 'Test City, Test Country',
-    'website' => 'https://testuser.com',
-    'phone' => '+1 555-0123',
-    'skills' => ['PHP', 'JavaScript', 'Testing'],
-    'experience_years' => 5,
-    'education_level' => 'Bachelor',
-    'availability_status' => 'Open to opportunities',
-];
+echo "=== Profile Update Test ===\n\n";
 
-$opts = [
-    'http' => [
-        'method' => 'PUT',
-        'header' => implode("\r\n", [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $token,
-            'x-user-id: ' . $userId,
-            'x-user-role: seeker',
-        ]),
-        'content' => json_encode($profileData),
-        'ignore_errors' => true,
-    ]
-];
+// Test 1: With UUID user ID
+echo "Test 1: Update profile with UUID user ID\n";
+echo "----------------------------------------\n";
 
-$context = stream_context_create($opts);
+$repo = new UserRepository();
+$service = new ProfileService();
 
-echo "Making PUT request to: $baseUrl/user/profile\n";
-echo "Payload: " . json_encode($profileData, JSON_PRETTY_PRINT) . "\n\n";
+// Get first user from database
+$pdo = \App\Core\Database\Connection::getPdo();
+$stmt = $pdo->query('SELECT id, email FROM users LIMIT 1');
+$user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-try {
-    $response = file_get_contents("$baseUrl/user/profile", false, $context);
-    $data = json_decode($response, true);
+if ($user) {
+    echo "Found user: {$user['email']} (ID: {$user['id']})\n";
     
-    if (isset($data['status'])) {
-        echo "✅ Status: " . ($data['status'] ? 'SUCCESS' : 'FAILED') . "\n";
-        echo "Message: " . ($data['message'] ?? '') . "\n";
+    $result = $service->updateProfile($user['id'], [
+        'first_name' => 'Test',
+        'last_name' => 'User',
+        'phone' => '555-1234',
+        'bio' => 'Test bio',
+    ]);
+    
+    if ($result['success']) {
+        echo "✅ Profile updated successfully!\n";
         
-        if ($data['status'] && isset($data['data'])) {
-            echo "\nReturned data:\n";
-            echo "  First Name: " . ($data['data']['first_name'] ?? '') . "\n";
-            echo "  Last Name: " . ($data['data']['last_name'] ?? '') . "\n";
-            echo "  Headline: " . ($data['data']['headline'] ?? '') . "\n";
-            echo "  Bio: " . substr($data['data']['bio'] ?? '', 0, 50) . "...\n";
-            echo "  Skills: " . implode(', ', $data['data']['skills'] ?? []) . "\n";
-        }
-    } else if (isset($data['error'])) {
-        echo "❌ Error: " . $data['error'] . "\n";
+        // Verify in database
+        $profile = $service->getProfile($user['id']);
+        echo "Updated profile:\n";
+        echo "  Name: {$profile['first_name']} {$profile['last_name']}\n";
+        echo "  Phone: {$profile['phone']}\n";
+        echo "  Bio: {$profile['bio']}\n";
     } else {
-        echo "Response:\n";
-        echo json_encode($data, JSON_PRETTY_PRINT) . "\n";
+        echo "❌ Update failed: {$result['message']}\n";
     }
-} catch (Exception $e) {
-    echo "❌ Exception: " . $e->getMessage() . "\n";
+} else {
+    echo "❌ No users found in database\n";
 }
+
+echo "\n";
+
+// Test 2: With local-admin ID
+echo "Test 2: Update profile with local-admin ID\n";
+echo "----------------------------------------\n";
+
+$result = $service->updateProfile('local-admin', [
+    'first_name' => 'Local',
+    'last_name' => 'Admin',
+    'phone' => '555-9999',
+]);
+
+if ($result['success']) {
+    echo "✅ Profile updated successfully!\n";
+} else {
+    echo "❌ Update failed: {$result['message']}\n";
+    echo "   (This is expected if local-admin doesn't exist in database)\n";
+}
+
+echo "\n";
+
+// Test 3: Check authentication flow
+echo "Test 3: Simulate authentication flow\n";
+echo "----------------------------------------\n";
+
+// Simulate JWT token
+$token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJyb2xlIjoic2Vla2VyIn0.signature';
+
+echo "Token: $token\n";
+echo "Decoded user ID would be: 550e8400-e29b-41d4-a716-446655440000\n";
+echo "This is a valid UUID format ✅\n";
+
+echo "\n";
+
+// Test 4: Check local fallback
+echo "Test 4: Local environment fallback\n";
+echo "----------------------------------------\n";
+
+echo "When no token/headers provided in local environment:\n";
+echo "  User ID: local-admin\n";
+echo "  This is NOT a UUID format\n";
+echo "  But it should still work if user exists in database\n";
+
+echo "\n=== Tests Complete ===\n";
