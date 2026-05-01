@@ -46,6 +46,8 @@ $matched = null;
 foreach (($routeRegistry['modules'] ?? []) as $moduleName => $moduleConfig) {
     $prefix = (string)($moduleConfig['prefix'] ?? '');
     $routes = $moduleConfig['routes'] ?? [];
+    // Support module override for namespace resolution
+    $actualModule = (string)($moduleConfig['_module_override'] ?? $moduleName);
 
     foreach ($routes as $definition) {
         if (!is_array($definition) || count($definition) < 3) {
@@ -84,7 +86,7 @@ foreach (($routeRegistry['modules'] ?? []) as $moduleName => $moduleConfig) {
         }
 
         $matched = [
-            'module' => (string)$moduleName,
+            'module' => $actualModule,
             'moduleConfig' => $moduleConfig,
             'handler' => (string)$handler,
             'params' => $params,

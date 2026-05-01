@@ -147,28 +147,32 @@ export default function FeedPage() {
 
     setPosts((prev) => [optimisticPost, ...prev]);
 
-    if (!usingMock.current) {
-      try {
-        const res = await apiCreatePost({
-          content: payload.content,
-          visibility: payload.visibility,
-          attachments: payload.attachments,
-          poll: payload.poll,
-          scheduledFor: normalizedSchedule,
-          hashtags: optimisticPost.hashtags,
-          relevanceTags: viewer.skills ?? [],
-          imageUrl: optimisticPost.image,
-        });
+    // Always try to send post to API, even if currently using mock data
+    try {
+      const res = await apiCreatePost({
+        content: payload.content,
+        visibility: payload.visibility,
+        attachments: payload.attachments,
+        poll: payload.poll,
+        scheduledFor: normalizedSchedule,
+        hashtags: optimisticPost.hashtags,
+        relevanceTags: viewer.skills ?? [],
+        imageUrl: optimisticPost.image,
+      });
 
-        if (res.success && res.data) {
-          // Replace optimistic post with real one from server
-          setPosts((prev) =>
-            prev.map((p) => (p.id === optimisticPost.id ? res.data! : p))
-          );
+      if (res.success && res.data) {
+        // If API succeeds, switch out of mock mode and replace optimistic post with real one
+        if (usingMock.current) {
+          usingMock.current = false;
         }
-      } catch {
-        // Keep optimistic post on failure — user already sees it
+        // Replace optimistic post with real one from server
+        setPosts((prev) =>
+          prev.map((p) => (p.id === optimisticPost.id ? res.data! : p))
+        );
       }
+    } catch {
+      // Keep optimistic post on failure — user already sees it
+      // Note: if we're in mock mode, we stay in mock mode and the post stays optimistic
     }
   }, [viewer]);
 
@@ -189,12 +193,14 @@ export default function FeedPage() {
       })
     );
 
-    if (!usingMock.current) {
-      try {
-        await apiReactToPost(postId, reaction);
-      } catch {
-        // Optimistic update stays — non-critical
+    // Always try to sync reaction to API
+    try {
+      await apiReactToPost(postId, reaction);
+      if (usingMock.current) {
+        usingMock.current = false;
       }
+    } catch {
+      // Optimistic update stays — non-critical
     }
   }, []);
 
@@ -223,41 +229,43 @@ export default function FeedPage() {
       })
     );
 
-    if (!usingMock.current) {
-      try {
-        const res = await apiAddComment(postId, content, parentCommentId);
-        if (res.success && res.data) {
-          // Replace optimistic comment with server comment
-          setPosts((prev) =>
-            prev.map((post) => {
-              if (post.id !== postId) return post;
-              if (!parentCommentId) {
-                return {
-                  ...post,
-                  comments: post.comments.map((c) =>
-                    c.id === freshComment.id ? res.data! : c
-                  ),
-                };
-              }
+    // Always try to sync comment to API
+    try {
+      const res = await apiAddComment(postId, content, parentCommentId);
+      if (res.success && res.data) {
+        if (usingMock.current) {
+          usingMock.current = false;
+        }
+        // Replace optimistic comment with server comment
+        setPosts((prev) =>
+          prev.map((post) => {
+            if (post.id !== postId) return post;
+            if (!parentCommentId) {
               return {
                 ...post,
                 comments: post.comments.map((c) =>
-                  c.id === parentCommentId
-                    ? {
-                      ...c,
-                      replies: (c.replies ?? []).map((r) =>
-                        r.id === freshComment.id ? res.data! : r
-                      ),
-                    }
-                    : c
+                  c.id === freshComment.id ? res.data! : c
                 ),
               };
-            })
-          );
-        }
-      } catch {
-        // Optimistic comment stays
+            }
+            return {
+              ...post,
+              comments: post.comments.map((c) =>
+                c.id === parentCommentId
+                  ? {
+                    ...c,
+                    replies: (c.replies ?? []).map((r) =>
+                      r.id === freshComment.id ? res.data! : r
+                    ),
+                  }
+                  : c
+              ),
+            };
+          })
+        );
       }
+    } catch {
+      // Optimistic comment stays
     }
   }, [createFreshComment]);
 
@@ -292,17 +300,19 @@ export default function FeedPage() {
       return [repost, ...updated];
     });
 
-    if (!usingMock.current) {
-      try {
-        const res = await apiSharePost(postId, commentary);
-        if (res.success && res.data) {
-          setPosts((prev) =>
-            prev.map((p) => (p.id === repost.id ? res.data! : p))
-          );
+    // Always try to sync share to API
+    try {
+      const res = await apiSharePost(postId, commentary);
+      if (res.success && res.data) {
+        if (usingMock.current) {
+          usingMock.current = false;
         }
-      } catch {
-        // Optimistic repost stays
+        setPosts((prev) =>
+          prev.map((p) => (p.id === repost.id ? res.data! : p))
+        );
       }
+    } catch {
+      // Optimistic repost stays
     }
   }, [posts, viewer]);
 
@@ -325,20 +335,22 @@ export default function FeedPage() {
       })
     );
 
-    if (!usingMock.current) {
-      try {
-        const res = await apiVotePoll(postId, optionId);
-        if (res.success && res.data?.poll) {
-          // Sync with server poll state
-          setPosts((prev) =>
-            prev.map((post) =>
-              post.id === postId ? { ...post, poll: res.data!.poll } : post
-            )
-          );
+    // Always try to sync poll vote to API
+    try {
+      const res = await apiVotePoll(postId, optionId);
+      if (res.success && res.data?.poll) {
+        if (usingMock.current) {
+          usingMock.current = false;
         }
-      } catch {
-        // Optimistic vote stays
+        // Sync with server poll state
+        setPosts((prev) =>
+          prev.map((post) =>
+            post.id === postId ? { ...post, poll: res.data!.poll } : post
+          )
+        );
       }
+    } catch {
+      // Optimistic vote stays
     }
   }, []);
 

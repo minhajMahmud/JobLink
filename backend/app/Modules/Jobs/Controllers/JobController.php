@@ -4,279 +4,302 @@ declare(strict_types=1);
 
 namespace App\Modules\Jobs\Controllers;
 
-use App\Core\Database\Connection;
 use App\Core\Http\Request;
-use PDO;
+use App\Modules\Jobs\Services\JobService;
+use App\Modules\Jobs\Services\JobApplicationService;
 use Throwable;
 
 final class JobController
 {
+    private JobService $jobService;
+    private JobApplicationService $applicationService;
+
+    public function __construct()
+    {
+        $this->jobService = new JobService();
+        $this->applicationService = new JobApplicationService();
+    }
+
+    /**
+     * GET /api/jobs
+     * Search and filter jobs with pagination
+     * 
+     * Query parameters:
+     * - keyword: Search in title, description, company
+     * - location: Filter by location
+     * - type: Job type (Full-time, Part-time, Contract, Internship)
+     * - remote_policy: Remote policy (Onsite, Hybrid, Remote)
+     * - experience_level: Experience level (Entry, Junior, Mid, Senior, Lead, Executive)
+     * - min_salary: Minimum salary
+     * - max_salary: Maximum salary
+     * - featured: Filter featured jobs (1 or 0)
+     * - sort: Sort by (latest, oldest, salary_high, salary_low, relevance)
+     * - page: Page number (default: 1)
+     * - limit: Results per page (default: 20, max: 100)
+     * 
+     * @return array<string, mixed>
+     */
     public function index(Request $request): array
     {
         try {
-            $pdo = Connection::getPdo();
-        } catch (Throwable) {
-            $pdo = null;
+            // Extract and sanitize filters
+            $filters = [
+                'keyword' => trim((string)($request->query('keyword') ?? '')),
+                'location' => trim((string)($request->query('location') ?? '')),
+                'type' => trim((string)($request->query('type') ?? '')),
+                'remote_policy' => trim((string)($request->query('remote_policy') ?? '')),
+                'experience_level' => trim((string)($request->query('experience_level') ?? '')),
+                'min_salary' => $request->query('min_salary') ? (float)$request->query('min_salary') : null,
+                'max_salary' => $request->query('max_salary') ? (float)$request->query('max_salary') : null,
+                'featured' => $request->query('featured') === '1' || $request->query('featured') === 'true',
+                'sort' => trim((string)($request->query('sort') ?? 'relevance')),
+                'page' => max(1, (int)($request->query('page') ?? 1)),
+                'limit' => min(100, max(1, (int)($request->query('limit') ?? 20))),
+            ];
+            
+            // Validate filters
+            $validationErrors = $this->jobService->validateFilters($filters);
+            if (!empty($validationErrors)) {
+                return [
+                    'success' => false,
+                    'message' => 'Invalid filter parameters',
+                    'errors' => $validationErrors,
+                ];
+            }
+            
+            // Search jobs
+            $result = $this->jobService->searchJobs($filters);
+            
+            return [
+                'success' => true,
+                'data' => $result['data'],
+                'meta' => $result['meta'],
+            ];
+            
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to fetch jobs',
+                'error' => $e->getMessage(),
+            ];
         }
-
-        $page = max(1, (int)($request->query('page') ?? 1));
-        $limit = max(1, (int)($request->query('limit') ?? 50));
-
-        $filters = [
-            'query' => strtolower(trim((string)($request->query('query') ?? ''))),
-            'type' => strtolower(trim((string)($request->query('type') ?? ''))),
-            'experienceLevel' => strtolower(trim((string)($request->query('experienceLevel') ?? ''))),
-            'remotePolicy' => strtolower(trim((string)($request->query('remotePolicy') ?? ''))),
-            'company' => strtolower(trim((string)($request->query('company') ?? ''))),
-            'location' => strtolower(trim((string)($request->query('location') ?? ''))),
-            'industry' => strtolower(trim((string)($request->query('industry') ?? ''))),
-            'companySize' => strtolower(trim((string)($request->query('companySize') ?? ''))),
-            'skills' => array_values(array_filter(array_map(
-                static fn (string $skill): string => strtolower(trim($skill)),
-                explode(',', (string)($request->query('skills') ?? ''))
-            ))),
-        ];
-
-        $records = [];
-
-        if ($pdo instanceof PDO) {
-            $sql = <<<SQL
-SELECT
-    j.id,
-    j.title,
-    j.location,
-    j.remote_policy,
-    j.salary_min,
-    j.salary_max,
-    j.type,
-    j.level,
-    j.required_skills,
-    j.description,
-    j.status,
-    j.featured,
-    j.created_at,
-    c.name AS company_name,
-    c.industry,
-    c.size AS company_size,
-    c.logo AS company_logo,
-    COALESCE(app.applicant_count, 0) AS applicants
-FROM jobs j
-INNER JOIN companies c ON c.id = j.company_id
-LEFT JOIN (
-    SELECT job_id, COUNT(*) AS applicant_count
-    FROM job_applications
-    GROUP BY job_id
-) app ON app.job_id = j.id
-WHERE j.status = 'Active'
-ORDER BY j.featured DESC, j.created_at DESC
-SQL;
-
-            $stmt = $pdo->query($sql);
-            $rows = $stmt?->fetchAll() ?: [];
-
-            $records = array_map(fn (array $row): array => $this->mapJobRow($row), $rows);
-        }
-
-        if ($records === []) {
-            $records = $this->fallbackJobs();
-        }
-
-        $records = array_values(array_filter($records, static function (array $job) use ($filters): bool {
-            if ($filters['query'] !== '') {
-                $haystack = strtolower(implode(' ', [
-                    (string)($job['title'] ?? ''),
-                    (string)($job['company'] ?? ''),
-                    (string)($job['industry'] ?? ''),
-                    implode(' ', $job['skills'] ?? []),
-                ]));
-
-                if (!str_contains($haystack, $filters['query'])) {
-                    return false;
-                }
-            }
-
-            if ($filters['type'] !== '' && strtolower((string)($job['type'] ?? '')) !== $filters['type']) {
-                return false;
-            }
-
-            if ($filters['experienceLevel'] !== '' && strtolower((string)($job['experienceLevel'] ?? '')) !== $filters['experienceLevel']) {
-                return false;
-            }
-
-            if ($filters['remotePolicy'] !== '' && strtolower((string)($job['remotePolicy'] ?? '')) !== $filters['remotePolicy']) {
-                return false;
-            }
-
-            if ($filters['company'] !== '' && !str_contains(strtolower((string)($job['company'] ?? '')), $filters['company'])) {
-                return false;
-            }
-
-            if ($filters['location'] !== '' && !str_contains(strtolower((string)($job['location'] ?? '')), $filters['location'])) {
-                return false;
-            }
-
-            if ($filters['industry'] !== '' && !str_contains(strtolower((string)($job['industry'] ?? '')), $filters['industry'])) {
-                return false;
-            }
-
-            if ($filters['companySize'] !== '' && strtolower((string)($job['companySize'] ?? '')) !== $filters['companySize']) {
-                return false;
-            }
-
-            if ($filters['skills'] !== []) {
-                $jobSkills = array_map('strtolower', $job['skills'] ?? []);
-                $skillMatches = false;
-                foreach ($filters['skills'] as $skill) {
-                    if (in_array($skill, $jobSkills, true)) {
-                        $skillMatches = true;
-                        break;
-                    }
-                }
-
-                if (!$skillMatches) {
-                    return false;
-                }
-            }
-
-            return true;
-        }));
-
-        return [
-            'data' => array_slice($records, ($page - 1) * $limit, $limit),
-            'meta' => [
-                'page' => $page,
-                'limit' => $limit,
-                'total' => count($records),
-                'total_pages' => (int)ceil(max(1, count($records)) / $limit),
-            ],
-        ];
     }
 
     /**
-     * @param array<string, mixed> $row
+     * GET /api/jobs/{id}
+     * Get job details by ID
+     * 
      * @return array<string, mixed>
      */
-    private function mapJobRow(array $row): array
-    {
-        $skills = json_decode((string)($row['required_skills'] ?? '[]'), true);
-        $skills = is_array($skills) ? array_values(array_map('strval', $skills)) : [];
-
-        $salaryMin = (int)($row['salary_min'] ?? 0);
-        $salaryMax = (int)($row['salary_max'] ?? 0);
-        $companyLogo = (string)($row['company_logo'] ?? 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?w=120&h=120&fit=crop');
-        $createdAt = strtotime((string)($row['created_at'] ?? 'now')) ?: time();
-        $remotePolicy = ucfirst(strtolower((string)($row['remote_policy'] ?? 'Hybrid')));
-
-        return [
-            'id' => (string)($row['id'] ?? ''),
-            'title' => (string)($row['title'] ?? ''),
-            'company' => (string)($row['company_name'] ?? 'Unknown Company'),
-            'companyLogo' => $companyLogo,
-            'location' => (string)($row['location'] ?? ''),
-            'remotePolicy' => in_array($remotePolicy, ['Onsite', 'Hybrid', 'Remote'], true) ? $remotePolicy : 'Hybrid',
-            'industry' => (string)($row['industry'] ?? ''),
-            'companySize' => (string)($row['company_size'] ?? '51-200'),
-            'salary' => $salaryMin > 0 && $salaryMax > 0 ? sprintf('$%dk - $%dk', $salaryMin, $salaryMax) : 'Negotiable',
-            'salaryMin' => $salaryMin,
-            'salaryMax' => $salaryMax,
-            'type' => (string)($row['type'] ?? 'Full-time'),
-            'experienceLevel' => ucfirst((string)($row['level'] ?? 'Mid')),
-            'description' => (string)($row['description'] ?? ''),
-            'requirements' => $skills,
-            'skills' => $skills,
-            'benefits' => [],
-            'visaSupport' => false,
-            'urgentHiring' => (bool)($row['featured'] ?? false),
-            'postedAt' => date('M d, Y', $createdAt),
-            'postedAtISO' => date(DATE_ATOM, $createdAt),
-            'applicants' => (int)($row['applicants'] ?? 0),
-        ];
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function fallbackJobs(): array
-    {
-        return [
-            [
-                'id' => 'job-1',
-                'title' => 'Senior Frontend Engineer',
-                'company' => 'TechFlow Inc.',
-                'companyLogo' => 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=120&h=120&fit=crop',
-                'location' => 'San Francisco, CA',
-                'remotePolicy' => 'Hybrid',
-                'industry' => 'SaaS',
-                'companySize' => '201-1000',
-                'salary' => '$160k - $210k',
-                'salaryMin' => 160,
-                'salaryMax' => 210,
-                'type' => 'Full-time',
-                'experienceLevel' => 'Senior',
-                'description' => 'Build the frontend platform powering product and hiring workflows.',
-                'requirements' => ['React', 'TypeScript', 'Design systems'],
-                'skills' => ['React', 'TypeScript', 'Design systems'],
-                'benefits' => ['Health insurance', 'Remote stipend'],
-                'visaSupport' => false,
-                'urgentHiring' => true,
-                'postedAt' => '2 days ago',
-                'postedAtISO' => date(DATE_ATOM, strtotime('-2 days') ?: time()),
-                'applicants' => 18,
-            ],
-            [
-                'id' => 'job-2',
-                'title' => 'Product Designer',
-                'company' => 'DesignHub',
-                'companyLogo' => 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=120&h=120&fit=crop',
-                'location' => 'Remote',
-                'remotePolicy' => 'Remote',
-                'industry' => 'Design',
-                'companySize' => '51-200',
-                'salary' => '$120k - $160k',
-                'salaryMin' => 120,
-                'salaryMax' => 160,
-                'type' => 'Full-time',
-                'experienceLevel' => 'Mid',
-                'description' => 'Design delightful experiences across candidate and employer tools.',
-                'requirements' => ['Figma', 'Design systems', 'Research'],
-                'skills' => ['Figma', 'Design systems', 'Research'],
-                'benefits' => ['Flexible hours'],
-                'visaSupport' => true,
-                'urgentHiring' => false,
-                'postedAt' => '4 days ago',
-                'postedAtISO' => date(DATE_ATOM, strtotime('-4 days') ?: time()),
-                'applicants' => 12,
-            ],
-        ];
-    }
-
     public function show(Request $request, string $id): array
     {
         try {
-            $pdo = Connection::getPdo();
-        } catch (Throwable) {
-            $pdo = null;
-        }
-
-        if ($pdo instanceof PDO) {
-            $stmt = $pdo->prepare('SELECT j.*, c.name as company_name, c.logo as company_logo, c.industry, c.size as company_size FROM jobs j LEFT JOIN companies c ON j.company_id = c.id WHERE j.id = :id LIMIT 1');
-            $stmt->execute(['id' => $id]);
-            $row = $stmt->fetch() ?: null;
-
-            if ($row) {
-                return ['success' => true, 'data' => $this->mapJobRow($row)];
+            $job = $this->jobService->getJobDetails($id);
+            
+            if (!$job) {
+                return [
+                    'success' => false,
+                    'message' => 'Job not found',
+                ];
             }
+            
+            return [
+                'success' => true,
+                'data' => $job,
+            ];
+            
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to fetch job details',
+                'error' => $e->getMessage(),
+            ];
         }
+    }
 
-        // Fallback: search in mock data
-        $jobs = $this->fallbackJobs();
-        $job = current(array_filter($jobs, static fn (array $j): bool => $j['id'] === $id));
-
-        if ($job) {
-            return ['success' => true, 'data' => $job];
+    /**
+     * POST /api/jobs/{id}/apply
+     * Apply for a job
+     * 
+     * Required: Authentication
+     * 
+     * Body parameters:
+     * - cover_letter: Cover letter text (optional, max 5000 chars)
+     * - resume_url: URL to resume (required if resume file not uploaded)
+     * - resume: Resume file upload (PDF, DOC, DOCX, max 5MB)
+     * 
+     * @return array<string, mixed>
+     */
+    public function apply(Request $request, string $id): array
+    {
+        try {
+            // Check authentication
+            $userId = (string)($request->user('id') ?? '');
+            if ($userId === '') {
+                return [
+                    'success' => false,
+                    'message' => 'Authentication required',
+                ];
+            }
+            
+            // Get candidate ID from user ID
+            // Note: In your system, you need to fetch the candidate record
+            // For now, we'll use user_id as candidate_id
+            $candidateId = $userId;
+            
+            // Parse request data
+            $data = $request->json();
+            
+            // Handle file upload if present
+            if (isset($_FILES['resume']) && $_FILES['resume']['error'] === UPLOAD_ERR_OK) {
+                $uploadResult = $this->applicationService->handleResumeUpload($_FILES['resume']);
+                
+                if (!$uploadResult['success']) {
+                    return [
+                        'success' => false,
+                        'message' => $uploadResult['message'],
+                    ];
+                }
+                
+                $data['resume_file_path'] = $uploadResult['path'];
+            }
+            
+            // Apply for job
+            $result = $this->applicationService->applyForJob($id, $candidateId, $data);
+            
+            return $result;
+            
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to submit application',
+                'error' => $e->getMessage(),
+            ];
         }
+    }
 
-        return ['success' => false, 'message' => 'Job not found'];
+    /**
+     * GET /api/jobs/{id}/applications
+     * Get all applications for a job (recruiter only)
+     * 
+     * @return array<string, mixed>
+     */
+    public function getApplications(Request $request, string $id): array
+    {
+        try {
+            // Check authentication and role
+            $userId = (string)($request->user('id') ?? '');
+            $userRole = (string)($request->user('role') ?? '');
+            
+            if ($userId === '' || !in_array($userRole, ['recruiter', 'admin'], true)) {
+                return [
+                    'success' => false,
+                    'message' => 'Unauthorized',
+                ];
+            }
+            
+            $applications = $this->applicationService->getJobApplications($id);
+            
+            return [
+                'success' => true,
+                'data' => $applications,
+                'meta' => [
+                    'total' => count($applications),
+                ],
+            ];
+            
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to fetch applications',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * GET /api/my-applications
+     * Get current user's job applications
+     * 
+     * @return array<string, mixed>
+     */
+    public function myApplications(Request $request): array
+    {
+        try {
+            // Check authentication
+            $userId = (string)($request->user('id') ?? '');
+            if ($userId === '') {
+                return [
+                    'success' => false,
+                    'message' => 'Authentication required',
+                ];
+            }
+            
+            // Get candidate ID from user ID
+            $candidateId = $userId;
+            
+            $applications = $this->applicationService->getCandidateApplications($candidateId);
+            
+            return [
+                'success' => true,
+                'data' => $applications,
+                'meta' => [
+                    'total' => count($applications),
+                ],
+            ];
+            
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to fetch applications',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * PUT /api/applications/{id}/status
+     * Update application status (recruiter only)
+     * 
+     * Body parameters:
+     * - status: New status (Applied, Reviewed, Interview, Offer, Hired, Rejected)
+     * 
+     * @return array<string, mixed>
+     */
+    public function updateApplicationStatus(Request $request, string $id): array
+    {
+        try {
+            // Check authentication and role
+            $userId = (string)($request->user('id') ?? '');
+            $userRole = (string)($request->user('role') ?? '');
+            
+            if ($userId === '' || !in_array($userRole, ['recruiter', 'admin'], true)) {
+                return [
+                    'success' => false,
+                    'message' => 'Unauthorized',
+                ];
+            }
+            
+            $data = $request->json();
+            $status = trim((string)($data['status'] ?? ''));
+            
+            if ($status === '') {
+                return [
+                    'success' => false,
+                    'message' => 'Status is required',
+                ];
+            }
+            
+            $result = $this->applicationService->updateApplicationStatus($id, $status);
+            
+            return $result;
+            
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to update application status',
+                'error' => $e->getMessage(),
+            ];
+        }
     }
 }
-

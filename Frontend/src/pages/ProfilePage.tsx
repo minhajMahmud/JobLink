@@ -6,6 +6,7 @@ import SkillTagger from "@/components/profile/SkillTagger";
 import ProfileViewTracker from "@/components/profile/ProfileViewTracker";
 import JobRecommendations from "@/components/profile/JobRecommendations";
 import ResumeBuilder from "@/components/profile/ResumeBuilder";
+import EditProfileModal from "@/components/profile/EditProfileModal";
 import { useState, useEffect } from "react";
 import { getCandidateProfile } from "@/features/profile/api/candidateApi";
 import { useAuth } from "@/features/auth/context/AuthContext";
@@ -70,6 +71,7 @@ interface Education {
 
 export default function ProfilePage() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isEditingUrl, setIsEditingUrl] = useState(false);
   const [customUrl, setCustomUrl] = useState("alexmorgan");
   const [loading, setLoading] = useState(false);
@@ -192,7 +194,13 @@ export default function ProfilePage() {
                             exit={{ opacity: 0, scale: 0.95, y: 10 }}
                             className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-border bg-card shadow-xl z-50 overflow-hidden"
                           >
-                            <button className="w-full px-4 py-3 text-left text-sm font-medium text-foreground hover:bg-secondary flex items-center gap-3 transition-colors">
+                            <button
+                              onClick={() => {
+                                setIsEditModalOpen(true);
+                                setProfileMenuOpen(false);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm font-medium text-foreground hover:bg-secondary flex items-center gap-3 transition-colors"
+                            >
                               <Edit2 className="h-4 w-4 text-blue-500" /> Edit Profile
                             </button>
                             <button className="w-full px-4 py-3 text-left text-sm font-medium text-foreground hover:bg-secondary flex items-center gap-3 transition-colors">
@@ -527,6 +535,17 @@ export default function ProfilePage() {
           <motion.div variants={itemVariants}><JobRecommendations /></motion.div>
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        profileData={profileData as Record<string, unknown> | undefined}
+        onSave={(data) => {
+          setProfileData(data);
+          setIsEditModalOpen(false);
+        }}
+      />
     </motion.div>
   );
 }

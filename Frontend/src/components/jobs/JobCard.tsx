@@ -112,7 +112,7 @@ export default function JobCard({ job, onApply, onBookmark, isBookmarked }: JobC
             {job.skills.slice(0, 3).map((skill) => (
               <span
                 key={skill}
-                className={`rounded-lg px-2.5 py-1 text-xs ${(currentUser.skills || []).map(s => s.toLowerCase()).includes(skill.toLowerCase())
+                className={`rounded-lg px-2.5 py-1 text-xs ${(viewer.skills || []).map(s => s.toLowerCase()).includes(skill.toLowerCase())
                   ? "bg-accent/10 text-accent font-semibold"
                   : "bg-secondary text-secondary-foreground"
                   }`}

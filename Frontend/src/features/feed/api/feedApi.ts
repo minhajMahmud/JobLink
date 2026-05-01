@@ -76,7 +76,7 @@ export interface ReactResponse {
 
 /** Fetch paginated feed posts */
 export async function getFeedPosts(page = 1, limit = 20): Promise<FeedResponse> {
-    const response = await api.get<FeedResponse>("/feed", {
+    const response = await api.get<FeedResponse>("/feed/", {
         params: { page, limit },
     });
     return response.data;

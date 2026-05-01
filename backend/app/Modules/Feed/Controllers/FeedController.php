@@ -31,10 +31,8 @@ final class FeedController
     private function fetchUserMeta(PDO $pdo, string $userId): array
     {
         $stmt = $pdo->prepare(
-            'SELECT u.first_name, u.last_name, u.role,
-                    c.avatar_url, c.bio
+            'SELECT u.first_name, u.last_name, u.role, u.avatar_url, u.bio
              FROM users u
-             LEFT JOIN candidates c ON c.user_id = u.id
              WHERE u.id = :id
              LIMIT 1'
         );
@@ -124,11 +122,10 @@ final class FeedController
     private function fetchComments(PDO $pdo, string $postId): array
     {
         $stmt = $pdo->prepare(
-            'SELECT pc.id, pc.user_id, pc.parent_id, pc.content, pc.reactions, pc.created_at,
-                    u.first_name, u.last_name, c.avatar_url
+            'SELECT pc.id, pc.user_id, pc.parent_id, pc.content, pc.created_at,
+                    u.first_name, u.last_name, u.avatar_url
              FROM post_comments pc
              INNER JOIN users u ON u.id = pc.user_id
-             LEFT JOIN candidates c ON c.user_id = pc.user_id
              WHERE pc.post_id = :post_id
              ORDER BY pc.created_at ASC'
         );
@@ -148,7 +145,6 @@ final class FeedController
                     'avatar' => (string)($row['avatar_url'] ?? 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'),
                 ],
                 'content'   => (string)$row['content'],
-                'reactions' => ($row['reactions'] !== null && $row['reactions'] !== '') ? (json_decode((string)$row['reactions'], true) ?: []) : [],
                 'createdAt' => $this->humanTime((string)($row['created_at'] ?? '')),
                 'replies'   => [],
             ];
@@ -192,62 +188,66 @@ final class FeedController
             return ['success' => false, 'message' => 'Database unavailable', 'data' => []];
         }
 
-        // Fetch posts — public + connections-visible + own private
-        $stmt = $pdo->prepare(
-            'SELECT p.*
-             FROM posts p
-             WHERE p.scheduled_for IS NULL OR p.scheduled_for <= NOW()
-             ORDER BY p.created_at DESC
-             LIMIT :limit OFFSET :offset'
-        );
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        $stmt->execute();
-        $rows = $stmt->fetchAll() ?: [];
-
-        // Count total for pagination
-        $countStmt = $pdo->query('SELECT COUNT(*) FROM posts WHERE scheduled_for IS NULL OR scheduled_for <= NOW()');
-        $total = $countStmt ? (int)$countStmt->fetchColumn() : 0;
-
-        // Fetch current user's reactions for these posts in one query
-        $postIds = array_column($rows, 'id');
-        $userReactions = [];
-        if ($userId !== '' && count($postIds) > 0) {
-            $placeholders = implode(',', array_fill(0, count($postIds), '?'));
-            $rStmt = $pdo->prepare(
-                "SELECT post_id, reaction FROM post_reactions WHERE user_id = ? AND post_id IN ($placeholders)"
+        try {
+            // Fetch posts — public + connections-visible + own private
+            $stmt = $pdo->prepare(
+                'SELECT p.*
+                 FROM posts p
+                 WHERE p.scheduled_for IS NULL OR p.scheduled_for <= NOW()
+                 ORDER BY p.created_at DESC
+                 LIMIT :limit OFFSET :offset'
             );
-            $rStmt->execute([$userId, ...$postIds]);
-            foreach ($rStmt->fetchAll() as $r) {
-                $userReactions[(string)$r['post_id']] = (string)$r['reaction'];
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            $rows = $stmt->fetchAll() ?: [];
+
+            // Count total for pagination
+            $countStmt = $pdo->query('SELECT COUNT(*) FROM posts WHERE scheduled_for IS NULL OR scheduled_for <= NOW()');
+            $total = $countStmt ? (int)$countStmt->fetchColumn() : 0;
+
+            // Fetch current user's reactions for these posts in one query
+            $postIds = array_column($rows, 'id');
+            $userReactions = [];
+            if ($userId !== '' && count($postIds) > 0) {
+                $placeholders = implode(',', array_fill(0, count($postIds), '?'));
+                $rStmt = $pdo->prepare(
+                    "SELECT post_id, reaction FROM post_reactions WHERE user_id = ? AND post_id IN ($placeholders)"
+                );
+                $rStmt->execute([$userId, ...$postIds]);
+                foreach ($rStmt->fetchAll() as $r) {
+                    $userReactions[(string)$r['post_id']] = (string)$r['reaction'];
+                }
             }
-        }
 
-        // Build author cache to avoid N+1
-        $authorIds = array_unique(array_column($rows, 'user_id'));
-        $authorCache = [];
-        foreach ($authorIds as $aid) {
-            $authorCache[(string)$aid] = $this->fetchUserMeta($pdo, (string)$aid);
-        }
+            // Build author cache to avoid N+1
+            $authorIds = array_unique(array_column($rows, 'user_id'));
+            $authorCache = [];
+            foreach ($authorIds as $aid) {
+                $authorCache[(string)$aid] = $this->fetchUserMeta($pdo, (string)$aid);
+            }
 
-        $data = [];
-        foreach ($rows as $row) {
-            $postId   = (string)$row['id'];
-            $author   = $authorCache[(string)$row['user_id']] ?? $this->fetchUserMeta($pdo, (string)$row['user_id']);
-            $comments = $this->fetchComments($pdo, $postId);
-            $data[]   = $this->mapPost($row, $author, $comments, $userReactions[$postId] ?? null);
-        }
+            $data = [];
+            foreach ($rows as $row) {
+                $postId   = (string)$row['id'];
+                $author   = $authorCache[(string)$row['user_id']] ?? $this->fetchUserMeta($pdo, (string)$row['user_id']);
+                $comments = $this->fetchComments($pdo, $postId);
+                $data[]   = $this->mapPost($row, $author, $comments, $userReactions[$postId] ?? null);
+            }
 
-        return [
-            'success' => true,
-            'data'    => $data,
-            'meta'    => [
-                'total'   => $total,
-                'page'    => $page,
-                'limit'   => $limit,
-                'pages'   => (int)ceil($total / $limit),
-            ],
-        ];
+            return [
+                'success' => true,
+                'data'    => $data,
+                'meta'    => [
+                    'total'   => $total,
+                    'page'    => $page,
+                    'limit'   => $limit,
+                    'pages'   => (int)ceil($total / $limit),
+                ],
+            ];
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => 'Error fetching feed: ' . $e->getMessage(), 'data' => []];
+        }
     }
 
     /**
@@ -256,20 +256,33 @@ final class FeedController
      */
     public function createPost(Request $request): array
     {
+        // Debug logging
+        $logFile = __DIR__ . '/../../../../debug_requests.log';
+        $timestamp = date('Y-m-d H:i:s');
+        file_put_contents($logFile, "\n[$timestamp] createPost called\n", FILE_APPEND);
+        
         $userId = (string)($request->user('id') ?? '');
+        file_put_contents($logFile, "  User ID: $userId\n", FILE_APPEND);
+        
         if ($userId === '') {
+            file_put_contents($logFile, "  ERROR: Unauthorized - no user ID\n", FILE_APPEND);
             return ['success' => false, 'message' => 'Unauthorized'];
         }
 
         $data = $request->json();
+        file_put_contents($logFile, "  Request data: " . json_encode($data) . "\n", FILE_APPEND);
+        
         $content = trim((string)($data['content'] ?? ''));
         if ($content === '') {
+            file_put_contents($logFile, "  ERROR: Content is empty\n", FILE_APPEND);
             return ['success' => false, 'message' => 'Content is required'];
         }
 
         try {
             $pdo = Connection::getPdo();
-        } catch (Throwable) {
+            file_put_contents($logFile, "  Database connection: OK\n", FILE_APPEND);
+        } catch (Throwable $e) {
+            file_put_contents($logFile, "  ERROR: Database unavailable - " . $e->getMessage() . "\n", FILE_APPEND);
             return ['success' => false, 'message' => 'Database unavailable'];
         }
 
@@ -282,33 +295,47 @@ final class FeedController
         $imageUrl     = ($data['imageUrl'] ?? $data['image'] ?? null) ?: null;
         $scheduledFor = ($data['scheduledFor'] ?? null) ?: null;
 
-        $stmt = $pdo->prepare(
-            'INSERT INTO posts
-                (id, user_id, content, visibility, hashtags, relevance_tags, attachments, poll, image_url, scheduled_for)
-             VALUES
-                (:id, :user_id, :content, :visibility, :hashtags, :relevance_tags, :attachments, :poll, :image_url, :scheduled_for)'
-        );
-        $stmt->execute([
-            'id'            => $id,
-            'user_id'       => $userId,
-            'content'       => $content,
-            'visibility'    => $visibility,
-            'hashtags'      => $hashtags,
-            'relevance_tags'=> $relevanceTags,
-            'attachments'   => $attachments,
-            'poll'          => $poll,
-            'image_url'     => $imageUrl,
-            'scheduled_for' => $scheduledFor,
-        ]);
+        try {
+            $stmt = $pdo->prepare(
+                'INSERT INTO posts
+                    (id, user_id, content, visibility, hashtags, relevance_tags, attachments, poll, image_url, scheduled_for)
+                 VALUES
+                    (:id, :user_id, :content, :visibility, :hashtags, :relevance_tags, :attachments, :poll, :image_url, :scheduled_for)'
+            );
+            $stmt->execute([
+                'id'            => $id,
+                'user_id'       => $userId,
+                'content'       => $content,
+                'visibility'    => $visibility,
+                'hashtags'      => $hashtags,
+                'relevance_tags'=> $relevanceTags,
+                'attachments'   => $attachments,
+                'poll'          => $poll,
+                'image_url'     => $imageUrl,
+                'scheduled_for' => $scheduledFor,
+            ]);
+            
+            file_put_contents($logFile, "  Post inserted with ID: $id\n", FILE_APPEND);
 
-        $author = $this->fetchUserMeta($pdo, $userId);
-        $row    = $pdo->query("SELECT * FROM posts WHERE id = '$id' LIMIT 1")->fetch() ?: [];
+            $author = $this->fetchUserMeta($pdo, $userId);
+            
+            // Fetch the newly created post using prepared statement
+            $fetchStmt = $pdo->prepare("SELECT * FROM posts WHERE id = :id LIMIT 1");
+            $fetchStmt->execute(['id' => $id]);
+            $row = $fetchStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            
+            file_put_contents($logFile, "  Post fetched: " . (!empty($row) ? 'YES' : 'NO') . "\n", FILE_APPEND);
+            file_put_contents($logFile, "  SUCCESS: Post created\n", FILE_APPEND);
 
-        return [
-            'success' => true,
-            'message' => 'Post created',
-            'data'    => $this->mapPost($row, $author, [], null),
-        ];
+            return [
+                'success' => true,
+                'message' => 'Post created',
+                'data'    => $this->mapPost($row, $author, [], null),
+            ];
+        } catch (Throwable $e) {
+            file_put_contents($logFile, "  ERROR during INSERT/SELECT: " . $e->getMessage() . "\n", FILE_APPEND);
+            return ['success' => false, 'message' => 'Failed to create post: ' . $e->getMessage()];
+        }
     }
 
     /**
@@ -407,15 +434,14 @@ final class FeedController
 
         $commentId = $this->generateUuidV4();
         $pdo->prepare(
-            'INSERT INTO post_comments (id, post_id, user_id, parent_id, content, reactions)
-             VALUES (:id, :post_id, :user_id, :parent_id, :content, :reactions)'
+            'INSERT INTO post_comments (id, post_id, user_id, parent_id, content)
+             VALUES (:id, :post_id, :user_id, :parent_id, :content)'
         )->execute([
             'id'        => $commentId,
             'post_id'   => $id,
             'user_id'   => $userId,
             'parent_id' => $parentId,
             'content'   => $content,
-            'reactions' => json_encode(['like' => 0]),
         ]);
 
         // Increment comments_count
@@ -430,7 +456,6 @@ final class FeedController
                 'id'        => $commentId,
                 'author'    => $author,
                 'content'   => $content,
-                'reactions' => ['like' => 0],
                 'createdAt' => 'Just now',
                 'replies'   => [],
             ],
@@ -494,7 +519,11 @@ final class FeedController
         ]);
 
         $author = $this->fetchUserMeta($pdo, $userId);
-        $row    = $pdo->query("SELECT * FROM posts WHERE id = '$repostId' LIMIT 1")->fetch() ?: [];
+        
+        // Fetch the newly created repost using prepared statement
+        $fetchStmt = $pdo->prepare("SELECT * FROM posts WHERE id = :id LIMIT 1");
+        $fetchStmt->execute(['id' => $repostId]);
+        $row = $fetchStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
         return [
             'success' => true,

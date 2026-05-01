@@ -6,8 +6,15 @@ return [
     'prefix' => '/user',
     'middleware' => ['auth'],
     'routes' => [
-        ['GET', '/profile', 'CandidateController@getProfile'],
-        ['PUT', '/profile', 'CandidateController@saveProfile'],
+        // Profile routes (new standardized endpoints)
+        ['GET', '/profile', 'ProfileController@getProfile'],
+        ['PUT', '/profile', 'ProfileController@updateProfile'],
+        ['POST', '/profile/image', 'ProfileController@uploadImage'],
+        
+        // Public user view
+        ['GET', '/{id}', 'UserController@show'],
+        
+        // Legacy candidate routes (for backward compatibility)
         ['GET', '/resume', 'CandidateController@getResume'],
         ['PUT', '/resume', 'CandidateController@saveResume'],
         ['GET', '/applications', 'CandidateController@getApplications'],
