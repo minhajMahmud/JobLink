@@ -4,22 +4,21 @@ use App\Modules\User\Repositories\UserRepository;
 use App\Modules\User\Services\ProfileService;
 
 $repo = new UserRepository();
-$user = $repo->findByEmail('seeker@joblink.com');
+$user = $repo->findByEmail('seeker@demo.com');
 if (!$user) { echo "User not found\n"; exit; }
 
 echo "User ID: {$user->id}\n";
-echo "Before Update phone: {$user->phone}\n";
 
 $svc = new ProfileService();
 $res = $svc->updateProfile($user->id, [
-    'phone' => '123-456-' . rand(1000, 9999), 
+    'experience_years' => rand(1, 10), 
+    'skills' => ['PHP', 'React'],
     'first_name' => 'Demo', 
-    'last_name' => 'User',
-    'bio' => 'New bio ' . time()
+    'last_name' => 'Seeker'
 ]);
 
 print_r($res);
 
-$userAfter = $repo->findByEmail('seeker@joblink.com');
-echo "After Update phone: {$userAfter->phone}\n";
-echo "After Update bio: {$userAfter->bio}\n";
+$profile = $svc->getProfile($user->id);
+echo "API Data: \n";
+print_r($profile);

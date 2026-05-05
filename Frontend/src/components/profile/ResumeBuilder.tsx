@@ -238,11 +238,7 @@ export default function ResumeBuilder() {
     element.classList.remove('hidden');
     element.classList.add('block');
     const originalStyle = element.style.cssText;
-    element.style.position = 'absolute';
-    element.style.left = '0px';
-    element.style.top = '0px';
-    element.style.margin = '0px';
-    element.style.zIndex = '9999';
+    element.style.cssText = 'position:absolute;left:0px;top:0px;margin:0px;z-index:9999;';
 
     const opt = {
       margin: 0,

@@ -84,7 +84,7 @@ export default function ProfilePage() {
     const loadProfile = async () => {
       try {
         const response = await getCandidateProfile();
-        if (response.success && response.data) {
+        if ((response.status || response.success) && response.data) {
           setProfileData(response.data);
         }
       } catch (error) {
@@ -94,7 +94,20 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  const displayUser = profileData ? { ...currentUser, name: (profileData.name as string) || currentUser.name, title: (profileData.title as string) || currentUser.title } : currentUser;
+  const displayUser = profileData ? { 
+    ...currentUser, 
+    name: (profileData.name as string) || (profileData.first_name ? `${profileData.first_name} ${profileData.last_name || ''}`.trim() : currentUser.name), 
+    title: (profileData.headline as string) || currentUser.title,
+    bio: (profileData.bio as string) || "Passionate professional looking for new opportunities.",
+    location: (profileData.location as string) || "Location not set",
+    website: (profileData.website as string) || "No website",
+    skills: profileData.skills || currentUser.skills || []
+  } : {
+    ...currentUser,
+    bio: "Passionate professional looking for new opportunities.",
+    location: "Location not set",
+    website: "No website"
+  };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -274,11 +287,10 @@ export default function ProfilePage() {
               {/* Info Row */}
               <motion.div variants={itemVariants} className="mt-5 flex flex-wrap gap-3 text-sm text-foreground/80">
                 <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors border border-transparent hover:border-border"><Briefcase className="h-4 w-4 text-blue-500" />{displayUser.company}</span>
-                <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors border border-transparent hover:border-border"><MapPin className="h-4 w-4 text-red-500" />San Francisco, CA</span>
-                <a href="#" className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-blue-500/10 hover:text-blue-600 cursor-pointer transition-colors border border-transparent hover:border-blue-500/20"><Globe className="h-4 w-4 text-green-500" /> alexmorgan.dev</a>
+                <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors border border-transparent hover:border-border"><MapPin className="h-4 w-4 text-red-500" />{displayUser.location}</span>
+                <a href={displayUser.website !== "No website" ? (displayUser.website as string).startsWith('http') ? (displayUser.website as string) : `https://${displayUser.website}` : "#"} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-blue-500/10 hover:text-blue-600 cursor-pointer transition-colors border border-transparent hover:border-blue-500/20"><Globe className="h-4 w-4 text-green-500" /> {displayUser.website}</a>
               </motion.div>
 
-              {/* Premium Action Buttons */}
               <motion.div variants={itemVariants} className="mt-6 flex gap-3 flex-wrap">
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1 sm:flex-initial rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transition-all">
                   Connect
@@ -330,10 +342,8 @@ export default function ProfilePage() {
                         </div>
                         <button title="Edit about" className="p-2 hover:bg-secondary rounded-lg transition-colors"><Edit2 className="h-4 w-4 text-muted-foreground" /></button>
                       </div>
-                      <p className="text-base leading-relaxed text-foreground/80">
-                        Passionate software engineer with over 6 years of experience building highly scalable web applications.
-                        I thrive on solving complex architectural challenges and mentoring engineering teams. Currently focused
-                        on modern frontend architectures, micro-frontends, and highly interactive user interfaces.
+                      <p className="text-base leading-relaxed text-foreground/80 whitespace-pre-wrap">
+                        {displayUser.bio}
                       </p>
                     </motion.div>
 
@@ -433,7 +443,7 @@ export default function ProfilePage() {
                         ))}
                       </div>
                       <div className="mt-6 pt-4 border-t border-border">
-                        <SkillTagger initialSkills={currentUser.skills ?? []} />
+                        <SkillTagger initialSkills={(displayUser.skills as string[]) ?? []} />
                       </div>
                     </motion.div>
                   </>
