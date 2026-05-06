@@ -21,6 +21,7 @@ import { currentUser } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect } from "react";
+import type { ElementType } from "react";
 import { getCandidateResume, updateCandidateResume } from "@/features/profile/api/candidateApi";
 
 type Theme = "classic" | "modern" | "creative" | "developer" | "executive";
@@ -137,7 +138,7 @@ export default function ResumeBuilder() {
           if (data.summary) setSummary(data.summary);
           if (data.skills) setSkills(data.skills);
           if (data.languages) setLanguages(data.languages);
-          if (data.headers) setHeaders({ ...headers, ...data.headers });
+          if (data.headers) setHeaders(h => ({ ...h, ...data.headers }));
           if (data.sections && Array.isArray(data.sections) && data.sections.length > 0) {
             setSections(data.sections);
           }
@@ -220,45 +221,93 @@ export default function ResumeBuilder() {
   const handleDownload = async () => {
     toast({ title: "Generating PDF...", description: "Please wait while we render your professional resume." });
 
-    // Lazy load html2pdf.js from CDN
-    if (!(window as any).html2pdf) {
-      await new Promise((resolve) => {
-        const script = document.createElement('script');
-        script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
-        script.onload = resolve;
-        document.head.appendChild(script);
-      });
+    const element = printRef.current;
+    if (!element) {
+      toast({ title: "Error", description: "Resume element not found.", variant: "destructive" });
+      return;
     }
 
-    const element = printRef.current;
-    if (!element) return;
-
-    // Temporarily make the hidden print wrapper block-level and position it at top-left
-    // This prevents html2canvas from cutting off the left side due to 'mx-auto' or scroll offsets.
-    element.classList.remove('hidden');
-    element.classList.add('block');
-    const originalStyle = element.style.cssText;
-    element.style.cssText = 'position:absolute;left:0px;top:0px;margin:0px;z-index:9999;';
-
-    const opt = {
-      margin: 0,
-      filename: `${name.replace(/\\s/g, "_")}_Resume.pdf`,
-      image: { type: 'jpeg', quality: 1 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true, scrollY: 0, scrollX: 0 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] }
-    };
-
     try {
-      await (window as any).html2pdf().set(opt).from(element).save();
+      // Load html2pdf library
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (!(window as any).html2pdf) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load html2pdf'));
+          document.head.appendChild(script);
+        });
+      }
+
+      // Save original inline styles
+      const originalStyle = element.getAttribute('style') || '';
+      const originalTransform = element.style.transform;
+
+      // Create a clone to avoid affecting the preview
+      const clone = element.cloneNode(true) as HTMLElement;
+
+      // Reset all transforms and positioning on the clone
+      clone.style.transform = 'none';
+      clone.style.margin = '0';
+      clone.style.padding = '0';
+      clone.style.width = '210mm';
+      clone.style.height = 'auto';
+      clone.style.minHeight = '297mm';
+      clone.style.display = 'block';
+      clone.style.visibility = 'visible';
+      clone.style.position = 'static';
+      clone.style.zIndex = 'auto';
+
+      // Append clone to body temporarily (hidden behind other elements)
+      clone.style.position = 'absolute';
+      clone.style.left = '0px';
+      clone.style.top = '0px';
+      clone.style.zIndex = '-9999';
+      document.body.appendChild(clone);
+
+      // Wait for rendering
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Generate PDF from clone
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const html2pdf = (window as any).html2pdf;
+      const opt = {
+        margin: 0,
+        filename: `${name.replace(/\s/g, "_")}_Resume.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          letterRendering: true,
+          backgroundColor: '#ffffff',
+          allowTaint: true,
+          logging: false,
+          windowHeight: 1200,
+          windowWidth: 800,
+          scrollY: 0,
+          scrollX: 0
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      await html2pdf().set(opt).from(clone).save();
+
+      // Clean up: remove clone from DOM
+      document.body.removeChild(clone);
+
+      // Restore original element style
+      if (originalStyle) {
+        element.setAttribute('style', originalStyle);
+      } else {
+        element.removeAttribute('style');
+      }
+
       toast({ title: "PDF Exported!", description: "Your resume has been successfully downloaded." });
     } catch (e) {
-      toast({ title: "Error", description: "Failed to generate PDF.", variant: "destructive" });
-    } finally {
-      // Re-hide and restore original styles
-      element.classList.remove('block');
-      element.classList.add('hidden');
-      element.style.cssText = originalStyle;
+      console.error('PDF generation error:', e);
+      toast({ title: "Error", description: `Failed to generate PDF: ${e instanceof Error ? e.message : 'Unknown error'}`, variant: "destructive" });
     }
   };
 
@@ -479,7 +528,7 @@ export default function ResumeBuilder() {
               <h3 className="text-[13px] font-bold tracking-widest text-[#2c3e50] uppercase border-b border-slate-200 pb-1 mb-4">{label}</h3>
               <div className="space-y-5">
                 {items.map(item => (
-                  <div key={item.id} className="relative pl-4 border-l-2 border-[#2c3e50]/20" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                  <div key={item.id} className="relative pl-4 border-l-2 border-[#2c3e50]/20 break-inside-avoid">
                     <div className="absolute -left-[5px] top-1.5 h-2 w-2 rounded-full bg-[#2c3e50]" />
                     <div className="flex justify-between items-baseline mb-0.5">
                       <h4 className="font-bold text-[12px] text-[#2c3e50] uppercase">{item.title}</h4>
@@ -529,7 +578,7 @@ export default function ResumeBuilder() {
                 <h3 className="text-[14px] font-black text-gray-800 uppercase border-b-2 border-indigo-100 pb-2 mb-4 inline-block">{label}</h3>
                 <div className="space-y-6">
                   {items.map(item => (
-                    <div key={item.id} className="relative" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                    <div key={item.id} className="relative break-inside-avoid">
                       <div className="flex justify-between items-baseline mb-1">
                         <h4 className="font-bold text-[13px] text-gray-800">{item.title}</h4>
                         <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">{item.period}</span>
@@ -660,7 +709,7 @@ export default function ResumeBuilder() {
     </div>
   );
 
-  const themesList: { id: Theme, name: string, icon: any }[] = [
+  const themesList: { id: Theme, name: string, icon: ElementType }[] = [
     { id: "executive", name: "Executive", icon: Briefcase },
     { id: "classic", name: "Classic", icon: AlignLeft },
     { id: "modern", name: "Modern", icon: Columns },
@@ -806,7 +855,7 @@ export default function ResumeBuilder() {
                   <div className="space-y-4">
                     {items.map((section) => (
                       <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} key={section.id} className="relative group p-4 border border-border bg-card rounded-xl shadow-sm">
-                        <button onClick={() => removeSection(section.id)} className="absolute top-2 right-2 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-secondary p-1.5 rounded-md shadow-sm"><Trash2 className="h-3 w-3" /></button>
+                        <button title="Remove section" aria-label="Remove section" onClick={() => removeSection(section.id)} className="absolute top-2 right-2 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-secondary p-1.5 rounded-md shadow-sm"><Trash2 className="h-3 w-3" /></button>
                         <div className="grid gap-3 sm:grid-cols-2 mb-3">
                           <Input placeholder={type === 'education' ? "Degree (e.g. B.S. Computer Science)" : "Role / Title"} value={section.title} onChange={(e) => updateSection(section.id, "title", e.target.value)} className="h-9 text-xs bg-secondary/30 font-bold" />
                           <Input placeholder={type === 'education' ? "University / Institution" : "Company / Organization"} value={section.subtitle} onChange={(e) => updateSection(section.id, "subtitle", e.target.value)} className="h-9 text-xs bg-secondary/30 font-medium text-muted-foreground" />
@@ -839,6 +888,7 @@ export default function ResumeBuilder() {
 
           <div className="w-full h-full overflow-y-auto no-scrollbar flex justify-center items-start pt-10 pb-32">
             <div
+              ref={printRef}
               className="bg-white shadow-2xl origin-top"
               style={{ width: '210mm', minHeight: '297mm', transform: 'scale(0.55)', marginBottom: '-45%' }}
             >
@@ -850,15 +900,6 @@ export default function ResumeBuilder() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Hidden Print Wrapper */}
-      <div id="print-resume-container" ref={printRef} className="hidden print:block w-[210mm] mx-auto bg-white">
-        {theme === "executive" && renderExecutiveTheme(true)}
-        {theme === "classic" && renderClassicTheme(true)}
-        {theme === "modern" && renderModernTheme(true)}
-        {theme === "creative" && renderCreativeTheme(true)}
-        {theme === "developer" && renderDeveloperTheme(true)}
       </div>
 
     </div>

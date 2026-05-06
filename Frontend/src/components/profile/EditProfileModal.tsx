@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Check, AlertCircle, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { updateCandidateProfile } from "@/features/profile/api/candidateApi";
@@ -22,6 +22,7 @@ interface EditProfileModalProps {
   onClose: () => void;
   profileData?: CandidateProfile;
   onSave?: (data: CandidateProfile) => void;
+  initialSection?: FormSection;
 }
 
 type FormSection = "personal" | "professional" | "preferences";
@@ -37,8 +38,16 @@ export default function EditProfileModal({
   onClose,
   profileData,
   onSave,
+  initialSection = "personal",
 }: EditProfileModalProps) {
-  const [activeSection, setActiveSection] = useState<FormSection>("personal");
+  const [activeSection, setActiveSection] = useState<FormSection>(initialSection);
+  
+  // Reset section when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setActiveSection(initialSection);
+    }
+  }, [isOpen, initialSection]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);

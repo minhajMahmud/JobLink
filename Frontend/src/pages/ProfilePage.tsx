@@ -94,9 +94,9 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  const displayUser = profileData ? { 
-    ...currentUser, 
-    name: (profileData.name as string) || (profileData.first_name ? `${profileData.first_name} ${profileData.last_name || ''}`.trim() : currentUser.name), 
+  const displayUser = profileData ? {
+    ...currentUser,
+    name: (profileData.name as string) || (profileData.first_name ? `${profileData.first_name} ${profileData.last_name || ''}`.trim() : currentUser.name),
     title: (profileData.headline as string) || currentUser.title,
     bio: (profileData.bio as string) || "Passionate professional looking for new opportunities.",
     location: (profileData.location as string) || "Location not set",
