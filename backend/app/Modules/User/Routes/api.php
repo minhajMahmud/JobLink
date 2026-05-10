@@ -14,22 +14,28 @@ return [
         // Public user view
         ['GET', '/{id}', 'UserController@show'],
         
+        // Resume routes (using dedicated ResumeController)
+        ['GET', '/resume', 'ResumeController@getResume'],
+        ['PUT', '/resume', 'ResumeController@updateResume'],
+        
         // Legacy candidate routes (for backward compatibility)
-        ['GET', '/resume', 'CandidateController@getResume'],
-        ['PUT', '/resume', 'CandidateController@saveResume'],
+        ['GET', '/resume-legacy', 'CandidateController@getResume'],
+        ['PUT', '/resume-legacy', 'CandidateController@saveResume'],
         ['GET', '/applications', 'CandidateController@getApplications'],
         ['POST', '/applications', 'CandidateController@applyToJob'],
         ['PATCH', '/applications/{id}/status', 'CandidateController@updateApplicationStatus'],
         
-        // Experience routes
-        ['POST', '/experience', 'CandidateController@addExperience'],
-        ['PUT', '/experience/{id}', 'CandidateController@updateExperience'],
-        ['DELETE', '/experience/{id}', 'CandidateController@deleteExperience'],
+        // Experience routes (using dedicated ExperienceController)
+        ['GET', '/experience', 'ExperienceController@getExperience'],
+        ['POST', '/experience', 'ExperienceController@addExperience'],
+        ['PUT', '/experience/{id}', 'ExperienceController@updateExperience'],
+        ['DELETE', '/experience/{id}', 'ExperienceController@deleteExperience'],
         
-        // Education routes
-        ['POST', '/education', 'CandidateController@addEducation'],
-        ['PUT', '/education/{id}', 'CandidateController@updateEducation'],
-        ['DELETE', '/education/{id}', 'CandidateController@deleteEducation'],
+        // Education routes (using dedicated EducationController)
+        ['GET', '/education', 'EducationController@getEducation'],
+        ['POST', '/education', 'EducationController@addEducation'],
+        ['PUT', '/education/{id}', 'EducationController@updateEducation'],
+        ['DELETE', '/education/{id}', 'EducationController@deleteEducation'],
         
         // Projects routes
         ['POST', '/projects', 'CandidateController@addProject'],
@@ -49,5 +55,9 @@ return [
         // Skills routes
         ['POST', '/skills/endorse', 'CandidateController@endorseSkill'],
         ['GET', '/skills/endorsements', 'CandidateController@getSkillEndorsements'],
+        
+        // Custom URL routes (using ProfileController)
+        ['GET', '/custom-url', 'ProfileController@getCustomUrl'],
+        ['PUT', '/custom-url', 'ProfileController@updateCustomUrl'],
     ],
 ];

@@ -1,7 +1,29 @@
 import { useState, useEffect } from "react";
-import { X, Check, AlertCircle, ChevronRight } from "lucide-react";
+import { X, Check, AlertCircle, ChevronRight, Plus, Trash2, Briefcase, GraduationCap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { updateCandidateProfile } from "@/features/profile/api/candidateApi";
+import { updateCandidateProfile, addExperience, updateExperience, deleteExperience, addEducation, updateEducation, deleteEducation } from "@/features/profile/api/candidateApi";
+
+interface Experience {
+  id?: string;
+  title: string;
+  company: string;
+  start_date?: string;
+  end_date?: string;
+  is_current?: boolean;
+  description?: string;
+}
+
+interface Education {
+  id?: string;
+  degree: string;
+  school: string;
+  field_of_study?: string;
+  start_date?: string;
+  end_date?: string;
+  is_current?: boolean;
+  description?: string;
+  grade?: string;
+}
 
 interface CandidateProfile {
   first_name?: string;
@@ -15,6 +37,8 @@ interface CandidateProfile {
   education_level?: string;
   skills?: string[];
   availability_status?: string;
+  experience?: Experience[];
+  education?: Education[];
 }
 
 interface EditProfileModalProps {
@@ -25,13 +49,35 @@ interface EditProfileModalProps {
   initialSection?: FormSection;
 }
 
-type FormSection = "personal" | "professional" | "preferences";
+type FormSection = "personal" | "professional" | "experience" | "education" | "preferences";
 
 const sections: { id: FormSection; label: string; icon: string }[] = [
   { id: "personal", label: "Personal Info", icon: "👤" },
   { id: "professional", label: "Professional", icon: "💼" },
+  { id: "experience", label: "Experience", icon: "💼" },
+  { id: "education", label: "Education", icon: "🎓" },
   { id: "preferences", label: "Preferences", icon: "⚙️" },
 ];
+
+const emptyExperience = (): Experience => ({
+  title: "",
+  company: "",
+  start_date: "",
+  end_date: "",
+  is_current: false,
+  description: "",
+});
+
+const emptyEducation = (): Education => ({
+  degree: "",
+  school: "",
+  field_of_study: "",
+  start_date: "",
+  end_date: "",
+  is_current: false,
+  description: "",
+  grade: "",
+});
 
 export default function EditProfileModal({
   isOpen,
@@ -41,47 +87,76 @@ export default function EditProfileModal({
   initialSection = "personal",
 }: EditProfileModalProps) {
   const [activeSection, setActiveSection] = useState<FormSection>(initialSection);
-  
-  // Reset section when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setActiveSection(initialSection);
-    }
-  }, [isOpen, initialSection]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
-    first_name: profileData?.first_name || "",
-    last_name: profileData?.last_name || "",
-    bio: profileData?.bio || "",
-    headline: profileData?.headline || "",
-    location: profileData?.location || "",
-    website: profileData?.website || "",
-    phone: profileData?.phone || "",
-    experience_years: profileData?.experience_years || 0,
-    education_level: profileData?.education_level || "Bachelor",
-    skills: Array.isArray(profileData?.skills)
-      ? profileData.skills.join(", ")
-      : "",
-    availability_status: profileData?.availability_status || "Open to opportunities",
+    first_name: "",
+    last_name: "",
+    bio: "",
+    headline: "",
+    location: "",
+    website: "",
+    phone: "",
+    experience_years: 0,
+    education_level: "Bachelor",
+    skills: "",
+    availability_status: "Open to opportunities",
   });
+  const [experiences, setExperiences] = useState<Experience[]>([]);
+  const [educations, setEducations] = useState<Education[]>([]);
+
+  // Reset form data when modal opens with new profile data
+  useEffect(() => {
+    if (isOpen) {
+      setActiveSection(initialSection);
+      setError("");
+      setSuccess(false);
+      setFormData({
+        first_name: profileData?.first_name || "",
+        last_name: profileData?.last_name || "",
+        bio: profileData?.bio || "",
+        headline: profileData?.headline || "",
+        location: profileData?.location || "",
+        website: profileData?.website || "",
+        phone: profileData?.phone || "",
+        experience_years: profileData?.experience_years || 0,
+        education_level: profileData?.education_level || "Bachelor",
+        skills: Array.isArray(profileData?.skills)
+          ? profileData.skills.join(", ")
+          : "",
+        availability_status: profileData?.availability_status || "Open to opportunities",
+      });
+      setExperiences(profileData?.experience?.length ? profileData.experience.map(e => ({ ...e })) : [emptyExperience()]);
+      setEducations(profileData?.education?.length ? profileData.education.map(e => ({ ...e })) : [emptyEducation()]);
+    }
+  }, [isOpen, initialSection, profileData]);
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
-    // Clear error when user starts typing
     if (error) {
       setError("");
     }
   };
+
+  const handleExpChange = (idx: number, field: keyof Experience, value: string | boolean) => {
+    setExperiences(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
+  };
+
+  const handleEduChange = (idx: number, field: keyof Education, value: string | boolean) => {
+    setEducations(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
+  };
+
+  const addExperienceRow = () => setExperiences(prev => [...prev, emptyExperience()]);
+  const removeExperienceRow = (idx: number) => setExperiences(prev => prev.filter((_, i) => i !== idx));
+  const addEducationRow = () => setEducations(prev => [...prev, emptyEducation()]);
+  const removeEducationRow = (idx: number) => setEducations(prev => prev.filter((_, i) => i !== idx));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +165,6 @@ export default function EditProfileModal({
     setLoading(true);
 
     try {
-      // Check if user is authenticated
       const storedAuth = localStorage.getItem("joblink.auth.user");
       if (!storedAuth) {
         setError("Please log in again to update your profile");
@@ -101,7 +175,7 @@ export default function EditProfileModal({
       let authUser;
       try {
         authUser = JSON.parse(storedAuth);
-      } catch (e) {
+      } catch {
         setError("Authentication data corrupted. Please log in again.");
         setLoading(false);
         localStorage.removeItem("joblink.auth.user");
@@ -115,7 +189,6 @@ export default function EditProfileModal({
         return;
       }
 
-      // Validate user ID format
       const userId = String(authUser.id).trim();
       if (!userId || userId === "undefined" || userId === "null") {
         setError("Invalid authentication. Please log in again.");
@@ -133,10 +206,29 @@ export default function EditProfileModal({
         experience_years: parseInt(String(formData.experience_years), 10),
       };
 
-      console.log("Submitting profile update with user ID:", userId);
       const response = await updateCandidateProfile(submitData);
 
       if (response.status) {
+        // Save experiences
+        for (const exp of experiences) {
+          if (!exp.title && !exp.company) continue;
+          if (exp.id) {
+            await updateExperience(exp.id, { ...exp, is_current: exp.is_current ? 1 : 0 });
+          } else {
+            await addExperience({ ...exp, is_current: exp.is_current ? 1 : 0 });
+          }
+        }
+
+        // Save educations
+        for (const edu of educations) {
+          if (!edu.degree && !edu.school) continue;
+          if (edu.id) {
+            await updateEducation(edu.id, { ...edu, is_current: edu.is_current ? 1 : 0 });
+          } else {
+            await addEducation({ ...edu, is_current: edu.is_current ? 1 : 0 });
+          }
+        }
+
         setSuccess(true);
         setTimeout(() => {
           if (onSave) {
@@ -200,18 +292,18 @@ export default function EditProfileModal({
 
             {/* Section Navigation */}
             <div className="border-b border-border/30 bg-secondary/50">
-              <div className="flex">
+              <div className="flex overflow-x-auto">
                 {sections.map((section) => (
                   <button
                     key={section.id}
                     onClick={() => setActiveSection(section.id)}
-                    className={`flex-1 px-6 py-4 text-center text-sm font-semibold transition-all relative ${
+                    className={`flex-1 px-4 py-4 text-center text-xs sm:text-sm font-semibold transition-all relative whitespace-nowrap ${
                       activeSection === section.id
                         ? "text-blue-600 bg-white/60"
                         : "text-muted-foreground hover:text-foreground bg-transparent"
                     }`}
                   >
-                    <span className="mr-2">{section.icon}</span>
+                    <span className="mr-1">{section.icon}</span>
                     {section.label}
                     {activeSection === section.id && (
                       <motion.div
@@ -443,6 +535,236 @@ export default function EditProfileModal({
                   )}
                 </AnimatePresence>
 
+                {/* Experience Section */}
+                <AnimatePresence mode="wait">
+                  {activeSection === "experience" && (
+                    <motion.div
+                      key="experience"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-6"
+                    >
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                          <Briefcase className="h-5 w-5 text-blue-500" /> Work Experience
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={addExperienceRow}
+                          className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Plus className="h-4 w-4" /> Add Experience
+                        </button>
+                      </div>
+
+                      {experiences.map((exp, idx) => (
+                        <div key={idx} className="relative p-5 border border-border rounded-xl bg-background/30 space-y-4">
+                          {experiences.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeExperienceRow(idx)}
+                              className="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition-colors"
+                              title="Remove"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-foreground mb-1.5">Job Title *</label>
+                              <input
+                                type="text"
+                                value={exp.title}
+                                onChange={(e) => handleExpChange(idx, "title", e.target.value)}
+                                placeholder="Senior Software Engineer"
+                                className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-foreground mb-1.5">Company *</label>
+                              <input
+                                type="text"
+                                value={exp.company}
+                                onChange={(e) => handleExpChange(idx, "company", e.target.value)}
+                                placeholder="TechFlow Inc."
+                                className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-foreground mb-1.5">Start Date</label>
+                              <input
+                                type="text"
+                                value={exp.start_date || ""}
+                                onChange={(e) => handleExpChange(idx, "start_date", e.target.value)}
+                                placeholder="Oct 2022"
+                                className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-foreground mb-1.5">End Date</label>
+                              <input
+                                type="text"
+                                value={exp.end_date || ""}
+                                onChange={(e) => handleExpChange(idx, "end_date", e.target.value)}
+                                placeholder="Present"
+                                className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={exp.is_current || false}
+                              onChange={(e) => handleExpChange(idx, "is_current", e.target.checked)}
+                              className="rounded border-gray-300"
+                            />
+                            I currently work here
+                          </label>
+                          <div>
+                            <label className="block text-xs font-semibold text-foreground mb-1.5">Description</label>
+                            <textarea
+                              value={exp.description || ""}
+                              onChange={(e) => handleExpChange(idx, "description", e.target.value)}
+                              placeholder="Describe your responsibilities and achievements..."
+                              rows={3}
+                              className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Education Section */}
+                <AnimatePresence mode="wait">
+                  {activeSection === "education" && (
+                    <motion.div
+                      key="education"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-6"
+                    >
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                          <GraduationCap className="h-5 w-5 text-purple-500" /> Education
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={addEducationRow}
+                          className="flex items-center gap-1 text-sm font-semibold text-purple-600 hover:text-purple-700 bg-purple-50 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Plus className="h-4 w-4" /> Add Education
+                        </button>
+                      </div>
+
+                      {educations.map((edu, idx) => (
+                        <div key={idx} className="relative p-5 border border-border rounded-xl bg-background/30 space-y-4">
+                          {educations.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeEducationRow(idx)}
+                              className="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition-colors"
+                              title="Remove"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-foreground mb-1.5">Degree *</label>
+                              <input
+                                type="text"
+                                value={edu.degree}
+                                onChange={(e) => handleEduChange(idx, "degree", e.target.value)}
+                                placeholder="B.S. Computer Science"
+                                className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-foreground mb-1.5">School *</label>
+                              <input
+                                type="text"
+                                value={edu.school}
+                                onChange={(e) => handleEduChange(idx, "school", e.target.value)}
+                                placeholder="MIT"
+                                className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-foreground mb-1.5">Field of Study</label>
+                              <input
+                                type="text"
+                                value={edu.field_of_study || ""}
+                                onChange={(e) => handleEduChange(idx, "field_of_study", e.target.value)}
+                                placeholder="Computer Science"
+                                className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-foreground mb-1.5">Grade</label>
+                              <input
+                                type="text"
+                                value={edu.grade || ""}
+                                onChange={(e) => handleEduChange(idx, "grade", e.target.value)}
+                                placeholder="3.8/4.0"
+                                className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-foreground mb-1.5">Start Date</label>
+                              <input
+                                type="text"
+                                value={edu.start_date || ""}
+                                onChange={(e) => handleEduChange(idx, "start_date", e.target.value)}
+                                placeholder="Sep 2015"
+                                className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-foreground mb-1.5">End Date</label>
+                              <input
+                                type="text"
+                                value={edu.end_date || ""}
+                                onChange={(e) => handleEduChange(idx, "end_date", e.target.value)}
+                                placeholder="May 2019"
+                                className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={edu.is_current || false}
+                              onChange={(e) => handleEduChange(idx, "is_current", e.target.checked)}
+                              className="rounded border-gray-300"
+                            />
+                            I currently study here
+                          </label>
+                          <div>
+                            <label className="block text-xs font-semibold text-foreground mb-1.5">Description</label>
+                            <textarea
+                              value={edu.description || ""}
+                              onChange={(e) => handleEduChange(idx, "description", e.target.value)}
+                              placeholder="Describe your studies, honors, activities..."
+                              rows={2}
+                              className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {/* Preferences Section */}
                 <AnimatePresence mode="wait">
                   {activeSection === "preferences" && (
@@ -485,9 +807,11 @@ export default function EditProfileModal({
               {/* Footer */}
               <div className="border-t border-border/30 bg-secondary/30 px-8 py-6 flex items-center justify-between gap-4 sticky bottom-0">
               <p className="text-xs text-muted-foreground">
-                {activeSection === "personal" && "Step 1 of 3: Personal Information"}
-                {activeSection === "professional" && "Step 2 of 3: Professional Details"}
-                {activeSection === "preferences" && "Step 3 of 3: Job Preferences"}
+                {activeSection === "personal" && "Step 1 of 5: Personal Information"}
+                {activeSection === "professional" && "Step 2 of 5: Professional Details"}
+                {activeSection === "experience" && "Step 3 of 5: Work Experience"}
+                {activeSection === "education" && "Step 4 of 5: Education"}
+                {activeSection === "preferences" && "Step 5 of 5: Job Preferences"}
               </p>
               <div className="flex gap-3">
                 <motion.button

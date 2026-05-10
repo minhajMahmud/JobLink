@@ -41,11 +41,13 @@ $mysqlService = Get-Service -Name "MySQL80" -ErrorAction SilentlyContinue
 if ($mysqlService) {
     if ($mysqlService.Status -eq "Running") {
         Write-Host "✓ MySQL already running" -ForegroundColor Green
-    } else {
+    }
+    else {
         Start-Service -Name "MySQL80"
         Write-Host "✓ MySQL started" -ForegroundColor Green
     }
-} else {
+}
+else {
     Write-Host "! MySQL service not found" -ForegroundColor Yellow
 }
 Start-Sleep -Seconds 2
@@ -54,7 +56,7 @@ Write-Host ""
 # Step 4: Start Backend
 Write-Host "[4/5] Starting PHP Backend on port 8000..." -ForegroundColor Yellow
 Push-Location backend
-Start-Process -FilePath "php" -ArgumentList "-S 127.0.0.1:8000" -WindowStyle Normal
+Start-Process -FilePath "php" -ArgumentList "-S 127.0.0.1:8000 -t public public/index.php" -WindowStyle Normal
 Pop-Location
 Start-Sleep -Seconds 3
 Write-Host "✓ Backend started on http://localhost:8000" -ForegroundColor Green

@@ -4,7 +4,7 @@
 
 $host = '127.0.0.1';
 $username = 'root';
-$password = 'root';
+$password = '';
 $database = 'joblink';
 
 try {
@@ -19,11 +19,11 @@ try {
     // Order of migrations
     $migrations = [
         'database/migrations/0000_master_schema.sql',
-        'database/migrations/0001_create_base_tables.sql',
-        'database/migrations/0002_create_candidate_profile_details.sql',
-        'database/migrations/0003_create_feed_tables.sql',
-        'database/migrations/0004_create_connections_notifications.sql',
-        'database/migrations/0005_enhance_user_profile.sql',
+        'database/migrations/0005_create_user_profile_tables.sql',
+        'database/migrations/2025_create_rms_tables.sql',
+        'database/migrations/2026_create_admin_panel_tables.sql',
+        'database/migrations/2027_create_candidate_resumes.sql',
+        'database/migrations/2028_create_employer_tables.sql',
     ];
     
     $total = 0;

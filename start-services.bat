@@ -47,7 +47,7 @@ echo.
 REM Step 4: Start PHP Backend
 echo [4/4] Starting PHP Backend on port 8000...
 cd backend
-start "JobLink Backend" cmd /k "php -S 127.0.0.1:8000"
+start "JobLink Backend" cmd /k "php -S 127.0.0.1:8000 -t public public/index.php"
 cd ..
 timeout /t 3 /nobreak >nul
 echo ✓ Backend started on http://localhost:8000

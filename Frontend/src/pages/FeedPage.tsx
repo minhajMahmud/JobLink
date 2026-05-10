@@ -16,6 +16,7 @@ import type { CreatePostPayload } from "@/components/feed/CreatePost";
 import PostCard from "@/components/feed/PostCard";
 import SuggestedConnections from "@/components/feed/SuggestedConnections";
 import TrendingTopics from "@/components/feed/TrendingTopics";
+import CompanyProfileCard from "@/components/feed/CompanyProfileCard";
 import {
   getFeedPosts,
   createPost as apiCreatePost,
@@ -362,27 +363,31 @@ export default function FeedPage() {
       {/* Left Sidebar - Profile Card */}
       <aside className="hidden lg:col-span-3 lg:block">
         <div className="sticky top-24 space-y-4">
-          <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-card">
-            <div className="h-20 bg-gradient-to-r from-primary to-accent" />
-            <div className="px-4 pb-4 -mt-8">
-              <img
-                src={viewer.avatar}
-                alt={viewer.name}
-                className="h-16 w-16 rounded-full border-4 border-card object-cover"
-              />
-              <h3 className="mt-2 text-sm font-semibold font-display text-foreground">
-                {viewer.name}
-              </h3>
-              <p className="text-xs text-muted-foreground">{viewer.title}</p>
-              <p className="text-xs text-muted-foreground">{viewer.company}</p>
-              <div className="mt-3 flex items-center justify-between rounded-xl bg-secondary px-3 py-2">
-                <span className="text-xs text-muted-foreground">Connections</span>
-                <span className="text-sm font-semibold text-primary">
-                  {viewer.connections}
-                </span>
+          {user?.role === "employer" ? (
+            <CompanyProfileCard />
+          ) : (
+            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-card">
+              <div className="h-20 bg-gradient-to-r from-primary to-accent" />
+              <div className="px-4 pb-4 -mt-8">
+                <img
+                  src={viewer.avatar}
+                  alt={viewer.name}
+                  className="h-16 w-16 rounded-full border-4 border-card object-cover"
+                />
+                <h3 className="mt-2 text-sm font-semibold font-display text-foreground">
+                  {viewer.name}
+                </h3>
+                <p className="text-xs text-muted-foreground">{viewer.title}</p>
+                <p className="text-xs text-muted-foreground">{viewer.company}</p>
+                <div className="mt-3 flex items-center justify-between rounded-xl bg-secondary px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Connections</span>
+                  <span className="text-sm font-semibold text-primary">
+                    {viewer.connections}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
           <TrendingTopics topics={trendingTopics} onSelectTopic={setActiveTopic} />
         </div>
       </aside>

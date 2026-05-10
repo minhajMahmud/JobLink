@@ -39,6 +39,11 @@ export async function removeConnection(
     return res.data;
 }
 
+export async function getPendingRequests(): Promise<{ success: boolean; data: NetworkUser[] }> {
+    const res = await apiClient.get("/network/requests");
+    return res.data;
+}
+
 export async function acceptConnectionRequest(
     requesterId: string
 ): Promise<{ success: boolean; status: string }> {

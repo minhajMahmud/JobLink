@@ -16,6 +16,7 @@ final class CandidateProfile
     public ?int $salaryMin;
     public ?int $salaryMax;
     public ?string $resumeUrl;
+    public ?string $customUrl;
     public int $profileStrength;
     public string $createdAt;
     public string $updatedAt;
@@ -38,6 +39,7 @@ final class CandidateProfile
         $profile->salaryMin = isset($data['salary_min']) ? (int)$data['salary_min'] : null;
         $profile->salaryMax = isset($data['salary_max']) ? (int)$data['salary_max'] : null;
         $profile->resumeUrl = isset($data['resume_url']) ? (string)$data['resume_url'] : null;
+        $profile->customUrl = isset($data['custom_url']) ? (string)$data['custom_url'] : null;
         $profile->profileStrength = (int)($data['profile_strength'] ?? 0);
         $profile->createdAt = (string)($data['created_at'] ?? date('Y-m-d H:i:s'));
         $profile->updatedAt = (string)($data['updated_at'] ?? date('Y-m-d H:i:s'));
@@ -60,6 +62,7 @@ final class CandidateProfile
             'salary_min' => $this->salaryMin,
             'salary_max' => $this->salaryMax,
             'resume_url' => $this->resumeUrl,
+            'custom_url' => $this->customUrl,
             'profile_strength' => $this->profileStrength,
             'created_at' => $this->createdAt,
             'updated_at' => $this->updatedAt,

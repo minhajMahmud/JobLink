@@ -19,6 +19,8 @@ import LoginPage from "@/pages/LoginPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
 import NotificationPreferencesPage from "@/pages/settings/NotificationPreferencesPage";
 import EmployerDashboard from "@/pages/employer/EmployerDashboard";
+import CompanyProfilePage from "@/pages/employer/CompanyProfilePage";
+import EmployerApplicationsPage from "@/pages/employer/EmployerApplicationsPage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import NotFound from "@/pages/NotFound";
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -41,13 +43,24 @@ function AppRoutes() {
   if (user.role === "employer") {
     return (
       <NotificationsProvider role="employer">
-        <Routes>
-          <Route path="/employer" element={<EmployerDashboard />} />
-          <Route path="/messages" element={<MessagesPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/settings/notifications" element={<NotificationPreferencesPage />} />
-          <Route path="*" element={<Navigate to="/employer" replace />} />
-        </Routes>
+        <AppLayout>
+          <Routes>
+            <Route path="/" element={<FeedPage />} />
+            <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/jobs/:jobId" element={<JobDetailPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/network" element={<NetworkPage />} />
+            <Route path="/messages" element={<MessagesPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/employer" element={<EmployerDashboard />} />
+            <Route path="/employer/profile" element={<CompanyProfilePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/notifications" element={<NotificationPreferencesPage />} />
+            <Route path="/employer/applications" element={<EmployerApplicationsPage />} />
+            <Route path="/applications" element={<ApplicationsPage />} />
+            <Route path="*" element={<Navigate to="/employer" replace />} />
+          </Routes>
+        </AppLayout>
       </NotificationsProvider>
     );
   }
@@ -55,13 +68,21 @@ function AppRoutes() {
   if (user.role === "admin") {
     return (
       <NotificationsProvider role="admin">
-        <Routes>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/messages" element={<MessagesPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/settings/notifications" element={<NotificationPreferencesPage />} />
-          <Route path="*" element={<Navigate to="/admin" replace />} />
-        </Routes>
+        <AppLayout>
+          <Routes>
+            <Route path="/" element={<FeedPage />} />
+            <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/jobs/:jobId" element={<JobDetailPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/network" element={<NetworkPage />} />
+            <Route path="/messages" element={<MessagesPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/notifications" element={<NotificationPreferencesPage />} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
+          </Routes>
+        </AppLayout>
       </NotificationsProvider>
     );
   }

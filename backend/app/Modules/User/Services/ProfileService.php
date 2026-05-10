@@ -43,6 +43,7 @@ final class ProfileService
                 $profile['salary_min'] = $candidateProfile->salaryMin;
                 $profile['salary_max'] = $candidateProfile->salaryMax;
                 $profile['resume_url'] = $candidateProfile->resumeUrl;
+                $profile['custom_url'] = $candidateProfile->customUrl;
                 $profile['profile_strength'] = $candidateProfile->profileStrength;
                 
                 // Fetch experiences
@@ -122,7 +123,7 @@ final class ProfileService
         // Update candidate-specific data
         if ($user->role === 'Candidate') {
             $candidateData = [];
-            $candidateFields = ['skills', 'experience_years', 'education_level', 'availability_status', 'salary_min', 'salary_max', 'resume_url'];
+            $candidateFields = ['skills', 'experience_years', 'education_level', 'availability_status', 'salary_min', 'salary_max', 'resume_url', 'custom_url'];
             
             foreach ($candidateFields as $field) {
                 if (isset($data[$field])) {

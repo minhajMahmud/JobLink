@@ -67,9 +67,9 @@ echo.
 REM Step 5: Start Backend
 echo [5/6] Starting Backend...
 cd backend
-start "JobLink Backend" cmd /k "php -S 127.0.0.1:8000"
+start "JobLink Backend" cmd /k "php -S 127.0.0.1:8000 -t public public/index.php"
 cd ..
-timeout /t 3 /nobreak >nul
+timeout /t 3 /nbreak >nul
 echo ✓ Backend started on http://localhost:8000
 echo.
 

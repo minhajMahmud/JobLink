@@ -39,6 +39,18 @@ final class EmployerController
             $userId = $this->getUserId($request);
             $pdo = Connection::getPdo();
             $company = $this->getOrCreateCompany($pdo, $userId);
+            
+            // Get user email and phone from users table
+            $stmt = $pdo->prepare('SELECT email, phone FROM users WHERE id = :user_id');
+            $stmt->execute(['user_id' => $userId]);
+            $user = $stmt->fetch();
+            
+            // Merge company data with user contact info
+            $company['email'] = $user['email'] ?? '';
+            $company['phone'] = $user['phone'] ?? '';
+            $company['founded'] = $company['founded_year'] ?? '';
+            $company['mission'] = $company['mission'] ?? '';
+            
             return ['success' => true, 'data' => $company];
         } catch (\Throwable $e) {
             return ['success' => true, 'data' => [
@@ -48,11 +60,15 @@ final class EmployerController
                 'size' => '50-200',
                 'headquarters' => 'San Francisco, CA',
                 'description' => 'Leading tech innovation company',
+                'mission' => 'To empower businesses with innovative technology solutions',
                 'culture' => 'Innovation-driven, collaborative',
                 'benefits' => 'Health insurance, stock options, flexible work',
                 'website' => 'https://techcompany.com',
                 'linkedin' => 'https://linkedin.com/company/techcompany',
-                'twitter' => '@techcompany'
+                'twitter' => '@techcompany',
+                'email' => 'contact@techcompany.com',
+                'phone' => '+1 (555) 123-4567',
+                'founded' => '2018'
             ]];
         }
     }
@@ -67,8 +83,8 @@ final class EmployerController
             $stmt = $pdo->prepare('
                 UPDATE companies 
                 SET name = :name, industry = :industry, size = :size, headquarters = :headquarters, 
-                    description = :description, culture = :culture, benefits = :benefits, 
-                    website = :website, linkedin = :linkedin, twitter = :twitter
+                    description = :description, mission = :mission, culture = :culture, benefits = :benefits, 
+                    website = :website, linkedin = :linkedin, twitter = :twitter, founded_year = :founded_year
                 WHERE user_id = :user_id
             ');
 
@@ -79,16 +95,38 @@ final class EmployerController
                 'size' => $data['size'] ?? '',
                 'headquarters' => $data['headquarters'] ?? '',
                 'description' => $data['description'] ?? '',
+                'mission' => $data['mission'] ?? '',
                 'culture' => $data['culture'] ?? '',
-                'benefits' => $data['benefits'] ?? '',
+                'benefits' => is_array($data['benefits'] ?? null) ? implode(', ', $data['benefits']) : ($data['benefits'] ?? ''),
                 'website' => $data['website'] ?? '',
                 'linkedin' => $data['linkedin'] ?? '',
-                'twitter' => $data['twitter'] ?? ''
+                'twitter' => $data['twitter'] ?? '',
+                'founded_year' => $data['founded'] ?? null
             ]);
+            
+            // Update user contact info if provided
+            if (isset($data['email']) || isset($data['phone'])) {
+                $updateFields = [];
+                $updateParams = ['user_id' => $userId];
+                
+                if (isset($data['email'])) {
+                    $updateFields[] = 'email = :email';
+                    $updateParams['email'] = $data['email'];
+                }
+                if (isset($data['phone'])) {
+                    $updateFields[] = 'phone = :phone';
+                    $updateParams['phone'] = $data['phone'];
+                }
+                
+                if (!empty($updateFields)) {
+                    $stmt = $pdo->prepare('UPDATE users SET ' . implode(', ', $updateFields) . ' WHERE id = :user_id');
+                    $stmt->execute($updateParams);
+                }
+            }
 
             return ['success' => true, 'message' => 'Company profile updated'];
         } catch (\Throwable $e) {
-            return ['success' => false, 'message' => 'Failed to update company profile'];
+            return ['success' => false, 'message' => 'Failed to update company profile: ' . $e->getMessage()];
         }
     }
 

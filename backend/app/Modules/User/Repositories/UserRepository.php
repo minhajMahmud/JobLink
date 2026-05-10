@@ -123,10 +123,10 @@ final class UserRepository
             // Create candidate profile if it doesn't exist with all provided data
             $insertSql = "INSERT INTO candidates (
                 id, user_id, skills, experience_years, education_level, 
-                availability_status, salary_min, salary_max, resume_url
+                availability_status, salary_min, salary_max, resume_url, custom_url
             ) VALUES (
                 :id, :user_id, :skills, :experience_years, :education_level,
-                :availability_status, :salary_min, :salary_max, :resume_url
+                :availability_status, :salary_min, :salary_max, :resume_url, :custom_url
             )";
             
             $insertStmt = $this->pdo->prepare($insertSql);
@@ -140,13 +140,14 @@ final class UserRepository
                 'salary_min' => isset($data['salary_min']) ? (float)$data['salary_min'] : null,
                 'salary_max' => isset($data['salary_max']) ? (float)$data['salary_max'] : null,
                 'resume_url' => isset($data['resume_url']) ? (string)$data['resume_url'] : null,
+                'custom_url' => isset($data['custom_url']) ? (string)$data['custom_url'] : null,
             ]);
         }
         
         // Update existing profile
         $allowedFields = [
             'skills', 'experience_years', 'education_level', 
-            'availability_status', 'salary_min', 'salary_max', 'resume_url'
+            'availability_status', 'salary_min', 'salary_max', 'resume_url', 'custom_url'
         ];
         
         $updates = [];

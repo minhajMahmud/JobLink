@@ -105,6 +105,11 @@ function barValue(value: number) {
   return Math.max(12, Math.min(100, value));
 }
 
+const employerTeam = [
+  { name: "Jane Doe", role: "Hiring Manager", avatar: "https://i.pravatar.cc/150?u=jane" },
+  { name: "John Smith", role: "Recruiter", avatar: "https://i.pravatar.cc/150?u=john" },
+];
+
 export default function EmployerDashboard() {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -219,35 +224,45 @@ export default function EmployerDashboard() {
     try {
       await toggleJobFeaturedApi(jobId);
       setJobs((current) => current.map((job) => (job.id === jobId ? { ...job, featured: !job.featured } : job)));
-    } catch (e) { }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const updateJobStatus = async (jobId: string, status: "Active" | "Paused" | "Closed") => {
     try {
       await updateJobStatusApi(jobId, status);
       setJobs((current) => current.map((job) => (job.id === jobId ? { ...job, status } : job)));
-    } catch (e) { }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const removeJob = async (jobId: string) => {
     try {
       await deleteJobApi(jobId);
       setJobs((current) => current.filter((job) => job.id !== jobId));
-    } catch (e) { }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const updateApplicantStatus = async (applicantId: string, status: ApplicantStatus) => {
     try {
       await updateApplicantStatusApi(applicantId, status);
       setApplicants((current) => current.map((applicant) => (applicant.id === applicantId ? { ...applicant, status } : applicant)));
-    } catch (e) { }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const updateApplicantNotes = async (applicantId: string, notes: string) => {
     try {
       await updateApplicantNotesApi(applicantId, notes);
       setApplicants((current) => current.map((applicant) => (applicant.id === applicantId ? { ...applicant, notes } : applicant)));
-    } catch (e) { }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const scheduleInterview = async () => {
@@ -267,7 +282,9 @@ export default function EmployerDashboard() {
         ...current,
       ]);
       setNewInterview({ candidate: "", role: "", date: "", time: "", mode: "Video" });
-    } catch (e) { }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const publishPost = async () => {
@@ -284,34 +301,12 @@ export default function EmployerDashboard() {
 
       setPosts((current) => [entry, ...current]);
       setNewPost({ title: "", body: "" });
-    } catch (e) { }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const darkModeEnabled = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-  const employerTeam = [
-    {
-      name: user?.name ?? "James Wilson",
-      role: "Employer owner",
-      company: user?.company ?? companyProfile.name,
-      avatar: user?.avatar,
-      tone: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-    },
-    {
-      name: "Sarah Jenkins",
-      role: "Head of Talent",
-      company: companyProfile.name,
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
-      tone: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-    },
-    {
-      name: "Marcus Chen",
-      role: "Recruiter",
-      company: companyProfile.name,
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face",
-      tone: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-    },
-  ];
 
   return (
     <div className="min-h-screen bg-background px-4 py-8 md:py-12">
@@ -362,20 +357,6 @@ export default function EmployerDashboard() {
                 <NotificationsBell variant="panel" />
               </div>
 
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/8 p-4 backdrop-blur-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Profile details</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-50">{user?.email}</p>
-                    <p className="text-xs text-slate-300">{companyProfile.name} • Employer workspace</p>
-                  </div>
-                  <div className="rounded-xl bg-cyan-400/10 px-3 py-2 text-right ring-1 ring-cyan-400/20">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200">Role</p>
-                    <p className="text-sm font-bold text-cyan-100">Employer</p>
-                  </div>
-                </div>
-              </div>
-
               <div className="mt-5 space-y-3">
                 <div className="flex items-center justify-between rounded-xl bg-white/8 px-4 py-3 border border-white/10">
                   <span className="text-sm font-medium text-slate-300">Hiring Health</span>
@@ -385,48 +366,15 @@ export default function EmployerDashboard() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Team workspace</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-50">Multiple employer seats</p>
-                    </div>
-                    <div className="-space-x-2 flex">
-                      {employerTeam.map((member) => (
-                        <img
-                          key={member.name}
-                          src={member.avatar}
-                          alt={member.name}
-                          className="h-9 w-9 rounded-full border-2 border-slate-950 object-cover shadow-sm"
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
-                    {employerTeam.map((member, index) => (
-                      <div key={member.name} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="relative shrink-0">
-                            <img src={member.avatar} alt={member.name} className="h-10 w-10 rounded-full object-cover ring-1 ring-white/15" />
-                            {index === 0 && (
-                              <div className="absolute -bottom-1 -right-1 rounded-full bg-gradient-to-br from-cyan-400 to-indigo-500 p-1 text-white shadow-sm">
-                                <Crown className="h-2.5 w-2.5" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-50">{member.name}</p>
-                            <p className="truncate text-xs text-slate-300">{member.role} • {member.company}</p>
-                          </div>
-                        </div>
-                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ring-1 ring-white/10 ${member.tone}`}>{index === 0 ? "Owner" : "Seat"}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="grid gap-2">
+                  <Link to="/employer/profile" className="inline-flex items-center justify-between rounded-xl border border-white/10 bg-indigo-400/10 px-4 py-3 text-sm font-semibold text-slate-50 transition-colors hover:bg-indigo-400/15">
+                    <span className="inline-flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-indigo-200" />
+                      View Profile
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-indigo-200" />
+                  </Link>
+
                   <Link to="/settings" className="inline-flex items-center justify-between rounded-xl border border-white/10 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-slate-50 transition-colors hover:bg-cyan-400/15">
                     <span className="inline-flex items-center gap-2">
                       <Settings className="h-4 w-4 text-cyan-200" />
@@ -507,15 +455,15 @@ export default function EmployerDashboard() {
                   key={tab.value}
                   value={tab.value}
                   className={`group relative rounded-none border-b-2 border-transparent bg-transparent px-1 pb-4 pt-2 text-sm font-semibold text-muted-foreground shadow-none data-[state=active]:shadow-none data-[state=active]:bg-transparent transition-colors whitespace-nowrap ${isCompanyTab
-                      ? "data-[state=active]:border-amber-500 data-[state=active]:text-amber-700 dark:data-[state=active]:text-amber-300 hover:text-amber-700 dark:hover:text-amber-300"
-                      : "data-[state=active]:border-primary data-[state=active]:text-foreground hover:text-foreground"
+                    ? "data-[state=active]:border-amber-500 data-[state=active]:text-amber-700 dark:data-[state=active]:text-amber-300 hover:text-amber-700 dark:hover:text-amber-300"
+                    : "data-[state=active]:border-primary data-[state=active]:text-foreground hover:text-foreground"
                     }`}
                 >
                   <span className="inline-flex items-center gap-2">
                     <span
                       className={`inline-flex h-5 w-5 items-center justify-center rounded-md transition-all ${isCompanyTab
-                          ? "bg-gradient-to-br from-amber-100 to-amber-50 text-amber-700 dark:from-amber-900/40 dark:to-amber-800/30 dark:text-amber-300 group-data-[state=active]:bg-gradient-to-br group-data-[state=active]:from-amber-500 group-data-[state=active]:to-orange-500 group-data-[state=active]:text-white group-data-[state=active]:shadow-sm"
-                          : "bg-secondary/70 text-muted-foreground group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary"
+                        ? "bg-gradient-to-br from-amber-100 to-amber-50 text-amber-700 dark:from-amber-900/40 dark:to-amber-800/30 dark:text-amber-300 group-data-[state=active]:bg-gradient-to-br group-data-[state=active]:from-amber-500 group-data-[state=active]:to-orange-500 group-data-[state=active]:text-white group-data-[state=active]:shadow-sm"
+                        : "bg-secondary/70 text-muted-foreground group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary"
                         }`}
                     >
                       <Icon className="h-3.5 w-3.5" />

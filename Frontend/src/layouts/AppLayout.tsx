@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Bell, Briefcase, Home, LogOut, Menu, MessageSquareText, Search, User, Users, X, ChevronDown, Settings } from "lucide-react";
+import { Bell, Briefcase, Building2, Home, LogOut, Menu, MessageSquareText, Search, User, Users, X, ChevronDown, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import {
@@ -11,13 +11,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const navItems = [
+const sharedNavItems = [
   { icon: Home, label: "Feed", path: "/" },
   { icon: Briefcase, label: "Jobs", path: "/jobs" },
   { icon: Users, label: "Network", path: "/network" },
   { icon: MessageSquareText, label: "Messages", path: "/messages" },
   { icon: Bell, label: "Notifications", path: "/notifications" },
 ];
+
+const employerNavItem = { icon: Building2, label: "Employer Hub", path: "/employer" };
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -30,6 +32,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     role: "seeker" as const,
     avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
   };
+
+  const navItems = useMemo(() => {
+    if (user?.role === "employer") {
+      return [...sharedNavItems, employerNavItem];
+    }
+    return sharedNavItems;
+  }, [user?.role]);
 
   return (
     <div className="min-h-screen bg-background font-sans">
@@ -56,19 +65,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <nav className="hidden items-center md:flex h-full gap-2">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path || (item.path !== "/" && location.pathname.startsWith(item.path));
+              const isEmployerItem = item.path === "/employer";
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`group relative flex min-w-[72px] flex-col items-center justify-center gap-1 h-full px-2 transition-all duration-300 ${isActive ? "text-blue-600" : "text-muted-foreground hover:text-foreground"
+                  className={`group relative flex min-w-[72px] flex-col items-center justify-center gap-1 h-full px-2 transition-all duration-300 ${isActive
+                    ? isEmployerItem ? "text-amber-500" : "text-blue-600"
+                    : "text-muted-foreground hover:text-foreground"
                     }`}
                 >
                   <div className={`relative flex items-center justify-center transition-transform duration-300 ${isActive ? "" : "group-hover:-translate-y-0.5"}`}>
                     <item.icon
-                      className={`h-[22px] w-[22px] transition-all duration-300 ${isActive ? "scale-110 drop-shadow-sm text-blue-600" : "opacity-80 group-hover:opacity-100 group-hover:text-foreground"}`}
+                      className={`h-[22px] w-[22px] transition-all duration-300 ${isActive
+                        ? isEmployerItem ? "scale-110 drop-shadow-sm text-amber-500" : "scale-110 drop-shadow-sm text-blue-600"
+                        : "opacity-80 group-hover:opacity-100 group-hover:text-foreground"
+                        }`}
                       strokeWidth={isActive ? 2.5 : 1.75}
                     />
-                    {/* Add subtle fill when active for premium feel */}
                     {isActive && (
                       <item.icon
                         className="h-[22px] w-[22px] absolute inset-0 text-blue-500/20 mix-blend-multiply scale-110"
@@ -77,14 +91,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       />
                     )}
                   </div>
-                  <span className={`text-[11px] font-semibold tracking-wide transition-all ${isActive ? "text-blue-600" : "opacity-90"}`}>
+                  <span className={`text-[11px] font-semibold tracking-wide transition-all ${isActive
+                    ? isEmployerItem ? "text-amber-500" : "text-blue-600"
+                    : "opacity-90"
+                    }`}>
                     {item.label}
                   </span>
 
                   {isActive && (
                     <motion.div
                       layoutId="desktop-nav-indicator"
-                      className="absolute bottom-0 left-0 right-0 h-1 rounded-t-full bg-blue-600"
+                      className={`absolute bottom-0 left-0 right-0 h-1 rounded-t-full ${isEmployerItem ? "bg-amber-500" : "bg-blue-600"}`}
                       transition={{ type: "spring", stiffness: 500, damping: 30 }}
                     />
                   )}
@@ -111,11 +128,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <img src={profile.avatar} alt={profile.name} className="h-10 w-10 rounded-full object-cover" />
                   <div className="flex flex-col">
                     <span className="text-sm font-bold text-foreground line-clamp-1">{profile.name}</span>
-                    <span className="text-xs text-muted-foreground line-clamp-1">{"title" in profile ? (profile as any).title : ""}</span>
+                    <span className="text-xs text-muted-foreground line-clamp-1">{"title" in profile ? (profile as { title?: string }).title ?? "" : ""}</span>
                   </div>
                 </div>
                 <DropdownMenuSeparator className="bg-border/50" />
-                <Link to="/profile">
+                <Link to={user?.role === "employer" ? "/employer/profile" : "/profile"}>
                   <DropdownMenuItem className="cursor-pointer gap-2 py-2.5 rounded-lg focus:bg-blue-500/10 focus:text-blue-600 font-medium">
                     <User className="h-4 w-4" /> View Profile
                   </DropdownMenuItem>
@@ -153,12 +170,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <nav className="flex flex-col p-4 gap-2">
               {navItems.map((item) => {
                 const isActive = location.pathname === item.path || (item.path !== "/" && location.pathname.startsWith(item.path));
+                const isEmployerItem = item.path === "/employer";
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-4 rounded-2xl px-4 py-3.5 text-sm font-semibold transition-all ${isActive ? "bg-blue-500/10 text-blue-600" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    className={`flex items-center gap-4 rounded-2xl px-4 py-3.5 text-sm font-semibold transition-all ${isActive
+                      ? isEmployerItem ? "bg-amber-500/10 text-amber-600" : "bg-blue-500/10 text-blue-600"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                       }`}
                   >
                     <item.icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
@@ -168,7 +188,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               })}
               <div className="my-2 h-px bg-border/50" />
               <Link
-                to="/profile"
+                to={user?.role === "employer" ? "/employer/profile" : "/profile"}
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center gap-4 rounded-2xl px-4 py-3.5 text-sm font-semibold text-muted-foreground transition-all hover:bg-secondary hover:text-foreground"
               >

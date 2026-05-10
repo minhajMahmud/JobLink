@@ -12,7 +12,7 @@ timeout /t 1 /nobreak >nul
 
 :: Start PHP backend
 echo Starting PHP backend on port 8000...
-start "JobLink Backend" cmd /k "cd /d %~dp0backend && php -S 127.0.0.1:8000 -t public"
+start "JobLink Backend" cmd /k "cd /d %~dp0backend && php -S 127.0.0.1:8000 -t public public/index.php"
 
 timeout /t 2 /nobreak >nul
 

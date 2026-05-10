@@ -180,3 +180,14 @@ export const getSkillEndorsements = async () => {
   const response = await api.get("/user/skills/endorsements");
   return response.data;
 };
+
+// Custom URL endpoints
+export const getCustomUrl = async () => {
+  const response = await api.get("/user/custom-url");
+  return response.data;
+};
+
+export const updateCustomUrl = async (customUrl: string) => {
+  const response = await api.put("/user/custom-url", { custom_url: customUrl });
+  return response.data;
+};

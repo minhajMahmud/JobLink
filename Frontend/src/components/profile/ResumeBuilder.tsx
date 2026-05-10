@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import type { ElementType } from "react";
+import { getCandidateResume, updateCandidateResume } from "@/features/profile/api/candidateApi";
 
 // ─────────────────────────────────────────────
 // Types
@@ -265,63 +266,125 @@ export default function ResumeBuilder() {
 
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Persist to localStorage
+  // Load resume from server on mount, fall back to localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("resumeBuilderData");
-      if (saved) {
-        const d = JSON.parse(saved);
-        if (d.theme) setTheme(d.theme);
-        if (d.name) setName(d.name);
-        if (d.jobTitle) setJobTitle(d.jobTitle);
-        if (d.email) setEmail(d.email);
-        if (d.phone) setPhone(d.phone);
-        if (d.address) setAddress(d.address);
-        if (d.linkedin) setLinkedin(d.linkedin);
-        if (d.github) setGithub(d.github);
-        if (d.summary) setSummary(d.summary);
-        if (d.skills) setSkills(d.skills);
-        if (d.languages) setLanguages(d.languages);
-        if (d.headers) setHeaders((h) => ({ ...h, ...d.headers }));
-        if (Array.isArray(d.sections) && d.sections.length > 0)
-          setSections(d.sections);
+    const loadResume = async () => {
+      try {
+        const response = await getCandidateResume();
+        if (response?.success && response?.data) {
+          const d = response.data;
+          if (d.theme) setTheme(d.theme as Theme);
+          if (d.include_avatar !== undefined) setIncludeAvatar(d.include_avatar === 1 || d.include_avatar === true);
+          if (d.personal_info) {
+            const pi = typeof d.personal_info === 'string' ? JSON.parse(d.personal_info) : d.personal_info;
+            if (pi.name) setName(pi.name);
+            if (pi.jobTitle) setJobTitle(pi.jobTitle);
+            if (pi.email) setEmail(pi.email);
+            if (pi.phone) setPhone(pi.phone);
+            if (pi.address) setAddress(pi.address);
+            if (pi.linkedin) setLinkedin(pi.linkedin);
+            if (pi.github) setGithub(pi.github);
+          }
+          if (d.summary) setSummary(d.summary);
+          if (d.skills) setSkills(d.skills);
+          if (d.languages) setLanguages(d.languages);
+          if (d.headers) {
+            const h = typeof d.headers === 'string' ? JSON.parse(d.headers) : d.headers;
+            setHeaders((prev) => ({ ...prev, ...h }));
+          }
+          if (Array.isArray(d.sections)) {
+            const secs = typeof d.sections === 'string' ? JSON.parse(d.sections) : d.sections;
+            if (secs.length > 0) setSections(secs);
+          }
+          return; // server data loaded, skip localStorage
+        }
+      } catch {
+        // server unavailable, fall through to localStorage
       }
-    } catch {
-      // ignore
-    }
+
+      // Fallback to localStorage
+      try {
+        const saved = localStorage.getItem("resumeBuilderData");
+        if (saved) {
+          const d = JSON.parse(saved);
+          if (d.theme) setTheme(d.theme);
+          if (d.name) setName(d.name);
+          if (d.jobTitle) setJobTitle(d.jobTitle);
+          if (d.email) setEmail(d.email);
+          if (d.phone) setPhone(d.phone);
+          if (d.address) setAddress(d.address);
+          if (d.linkedin) setLinkedin(d.linkedin);
+          if (d.github) setGithub(d.github);
+          if (d.summary) setSummary(d.summary);
+          if (d.skills) setSkills(d.skills);
+          if (d.languages) setLanguages(d.languages);
+          if (d.headers) setHeaders((h) => ({ ...h, ...d.headers }));
+          if (Array.isArray(d.sections) && d.sections.length > 0)
+            setSections(d.sections);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    loadResume();
   }, []);
 
-  // ── Save ───────────────────────────────────
-  const handleSave = () => {
+  // ── Save (server + localStorage fallback) ──
+  const handleSave = async () => {
+    // Save to server
     try {
-      localStorage.setItem(
-        "resumeBuilderData",
-        JSON.stringify({
-          theme,
-          name,
-          jobTitle,
-          email,
-          phone,
-          address,
-          linkedin,
-          github,
-          summary,
-          skills,
-          languages,
-          headers,
-          sections,
-        })
-      );
-      toast({
-        title: "Resume Saved!",
-        description: "Your resume has been saved locally.",
-      });
+      const payload = {
+        theme,
+        include_avatar: includeAvatar,
+        personal_info: { name, jobTitle, email, phone, address, linkedin, github },
+        summary,
+        skills,
+        languages,
+        headers,
+        sections,
+      };
+      const res = await updateCandidateResume(payload);
+      if (res?.success) {
+        toast({
+          title: "Resume Saved!",
+          description: "Your resume has been saved to the server.",
+        });
+      } else {
+        throw new Error(res?.message || "Server save failed");
+      }
     } catch {
-      toast({
-        title: "Error",
-        description: "Failed to save resume.",
-        variant: "destructive",
-      });
+      // Fallback: save to localStorage
+      try {
+        localStorage.setItem(
+          "resumeBuilderData",
+          JSON.stringify({
+            theme,
+            name,
+            jobTitle,
+            email,
+            phone,
+            address,
+            linkedin,
+            github,
+            summary,
+            skills,
+            languages,
+            headers,
+            sections,
+          })
+        );
+        toast({
+          title: "Resume Saved Locally",
+          description: "Server unavailable. Saved to local storage.",
+        });
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to save resume.",
+          variant: "destructive",
+        });
+      }
     }
   };
 

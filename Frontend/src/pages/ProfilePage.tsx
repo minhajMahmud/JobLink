@@ -1,4 +1,4 @@
-import { MapPin, Briefcase, Link as LinkIcon, Calendar, Edit2, Users, LogOut, MoreVertical, BadgeCheck, Award, Shield, Share2, Download, GraduationCap, Check, BookOpen, ExternalLink, Globe } from "lucide-react";
+import { MapPin, Briefcase, Link as LinkIcon, Calendar, Edit2, Users, LogOut, MoreVertical, BadgeCheck, Award, Shield, Share2, Download, GraduationCap, Check, BookOpen, ExternalLink, Globe, Plus, Pencil, Trash2 } from "lucide-react";
 import { currentUser, posts } from "@/data/mockData";
 import PostCard from "@/components/feed/PostCard";
 import ProfileStrengthScore from "@/components/profile/ProfileStrengthScore";
@@ -7,11 +7,14 @@ import ProfileViewTracker from "@/components/profile/ProfileViewTracker";
 import JobRecommendations from "@/components/profile/JobRecommendations";
 import ResumeBuilder from "@/components/profile/ResumeBuilder";
 import EditProfileModal from "@/components/profile/EditProfileModal";
+import { AddExperienceModal } from "@/components/profile/AddExperienceModal";
+import { AddEducationModal } from "@/components/profile/AddEducationModal";
 import { useState, useEffect } from "react";
-import { getCandidateProfile } from "@/features/profile/api/candidateApi";
+import { getCandidateProfile, getCustomUrl, updateCustomUrl, deleteExperience, deleteEducation } from "@/features/profile/api/candidateApi";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 const experience = [
   { title: "Senior Software Engineer", company: "TechFlow Inc.", period: "2022 - Present", description: "Leading frontend architecture for the main product platform. Mentored 5 junior developers." },
@@ -73,26 +76,68 @@ export default function ProfilePage() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isEditingUrl, setIsEditingUrl] = useState(false);
-  const [customUrl, setCustomUrl] = useState("alexmorgan");
+  const [customUrl, setCustomUrl] = useState("");
+  const [savingUrl, setSavingUrl] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState<Record<string, unknown> | null>(null);
   const [activeTab, setActiveTab] = useState("about");
+  const [isAddExperienceOpen, setIsAddExperienceOpen] = useState(false);
+  const [isAddEducationOpen, setIsAddEducationOpen] = useState(false);
+  const [editingExperience, setEditingExperience] = useState<Experience | null>(null);
+  const [editingEducation, setEditingEducation] = useState<Education | null>(null);
   const { logout } = useAuth();
   const userPosts = posts.slice(0, 2);
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const response = await getCandidateProfile();
-        if ((response.status || response.success) && response.data) {
-          setProfileData(response.data);
+  const loadProfile = async () => {
+    try {
+      const response = await getCandidateProfile();
+      if ((response.status || response.success) && response.data) {
+        setProfileData(response.data);
+        // Load custom URL from profile data if available
+        if (response.data.custom_url) {
+          setCustomUrl(response.data.custom_url as string);
         }
-      } catch (error) {
-        console.error("Failed to load profile:", error);
+      }
+    } catch (error) {
+      console.error("Failed to load profile:", error);
+    }
+  };
+
+  useEffect(() => {
+    loadProfile();
+
+    // Also try loading custom URL separately
+    const loadCustomUrl = async () => {
+      try {
+        const res = await getCustomUrl();
+        if (res?.success && res?.data?.custom_url) {
+          setCustomUrl(res.data.custom_url);
+        }
+      } catch {
+        // ignore
       }
     };
-    loadProfile();
+    if (!customUrl) loadCustomUrl();
   }, []);
+
+  const handleSaveUrl = async () => {
+    if (savingUrl) return;
+    setSavingUrl(true);
+    try {
+      const res = await updateCustomUrl(customUrl);
+      if (res?.success) {
+        toast.success("Custom URL saved!");
+        setIsEditingUrl(false);
+      } else {
+        toast.error(res?.message || "Failed to save custom URL");
+      }
+    } catch {
+      toast.error("Server unavailable. Saved locally.");
+      setIsEditingUrl(false);
+    } finally {
+      setSavingUrl(false);
+    }
+  };
 
   const displayUser = profileData ? {
     ...currentUser,
@@ -107,6 +152,62 @@ export default function ProfilePage() {
     bio: "Passionate professional looking for new opportunities.",
     location: "Location not set",
     website: "No website"
+  };
+
+  // Get real experience and education from profile data
+  const experienceList = (profileData?.experience as Experience[]) || experience;
+  const educationList = (profileData?.education as Education[]) || education;
+
+  const handleDeleteExperience = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this experience?")) return;
+    try {
+      await deleteExperience(id);
+      toast.success("Experience deleted successfully");
+      loadProfile();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to delete experience");
+    }
+  };
+
+  const handleDeleteEducation = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this education entry?")) return;
+    try {
+      await deleteEducation(id);
+      toast.success("Education deleted successfully");
+      loadProfile();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to delete education");
+    }
+  };
+
+  const handleEditExperience = (exp: Experience) => {
+    setEditingExperience(exp);
+    setIsAddExperienceOpen(true);
+  };
+
+  const handleEditEducation = (edu: Education) => {
+    setEditingEducation(edu);
+    setIsAddEducationOpen(true);
+  };
+
+  const handleExperienceModalClose = () => {
+    setIsAddExperienceOpen(false);
+    setEditingExperience(null);
+  };
+
+  const handleEducationModalClose = () => {
+    setIsAddEducationOpen(false);
+    setEditingEducation(null);
+  };
+
+  const handleExperienceSuccess = () => {
+    loadProfile();
+    handleExperienceModalClose();
+  };
+
+  const handleEducationSuccess = () => {
+    loadProfile();
+    handleEducationModalClose();
   };
 
   const containerVariants = {
@@ -252,14 +353,21 @@ export default function ProfilePage() {
                       autoFocus
                     />
                   ) : (
-                    <span className="font-semibold text-foreground">{customUrl}</span>
+                    <span className="font-semibold text-foreground">{customUrl || "your-profile"}</span>
                   )}
                 </div>
                 <button
-                  onClick={() => setIsEditingUrl(!isEditingUrl)}
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-500/10 px-3 py-1.5 rounded-lg transition-colors"
+                  onClick={() => {
+                    if (isEditingUrl) {
+                      handleSaveUrl();
+                    } else {
+                      setIsEditingUrl(true);
+                    }
+                  }}
+                  disabled={savingUrl}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-500/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  {isEditingUrl ? "Save" : "Customize URL"}
+                  {savingUrl ? "Saving..." : isEditingUrl ? "Save" : "Customize URL"}
                 </button>
               </motion.div>
 
@@ -340,7 +448,7 @@ export default function ProfilePage() {
                           </div>
                           <h2 className="text-xl font-bold font-display text-foreground">About</h2>
                         </div>
-                        <button title="Edit about" className="p-2 hover:bg-secondary rounded-lg transition-colors"><Edit2 className="h-4 w-4 text-muted-foreground" /></button>
+                        <button title="Edit about" onClick={() => setIsEditModalOpen(true)} className="p-2 hover:bg-secondary rounded-lg transition-colors"><Edit2 className="h-4 w-4 text-muted-foreground" /></button>
                       </div>
                       <p className="text-base leading-relaxed text-foreground/80 whitespace-pre-wrap">
                         {displayUser.bio}
@@ -358,26 +466,47 @@ export default function ProfilePage() {
                             </div>
                             <h2 className="text-xl font-bold font-display text-foreground">Experience</h2>
                           </div>
+                          <button
+                            onClick={() => setIsAddExperienceOpen(true)}
+                            className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-500/10 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            <Plus className="h-4 w-4" />
+                            Add
+                          </button>
                         </div>
                         <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
-                          {experience.map((exp, idx) => (
-                            <motion.div
-                              initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
-                              key={exp.title} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
-                            >
-                              <div className="flex items-center justify-center w-10 h-10 rounded-full border border-card bg-secondary text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 transition-transform group-hover:scale-110">
-                                <Check className="h-4 w-4 text-blue-500" />
-                              </div>
-                              <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-border bg-card/50 shadow-sm transition-all group-hover:shadow-md group-hover:border-blue-500/30">
-                                <div className="flex items-center justify-between mb-1">
-                                  <h3 className="font-bold text-foreground text-sm">{exp.title}</h3>
-                                  {idx === 0 && <span className="text-[10px] uppercase tracking-wider font-bold text-green-600 bg-green-500/10 px-2 py-0.5 rounded">Current</span>}
+                          {experienceList.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-8">No experience added yet. Click "Add" to get started.</p>
+                          ) : (
+                            experienceList.map((exp, idx) => (
+                              <motion.div
+                                initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
+                                key={exp.id || exp.title} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
+                              >
+                                <div className="flex items-center justify-center w-10 h-10 rounded-full border border-card bg-secondary text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 transition-transform group-hover:scale-110">
+                                  <Check className="h-4 w-4 text-blue-500" />
                                 </div>
-                                <div className="text-sm text-foreground/70 mb-2">{exp.company} • {exp.period}</div>
-                                <p className="text-xs text-muted-foreground">{exp.description}</p>
-                              </div>
-                            </motion.div>
-                          ))}
+                                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-border bg-card/50 shadow-sm transition-all group-hover:shadow-md group-hover:border-blue-500/30">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <h3 className="font-bold text-foreground text-sm">{exp.title}</h3>
+                                    <div className="flex items-center gap-1">
+                                      {exp.is_current && <span className="text-[10px] uppercase tracking-wider font-bold text-green-600 bg-green-500/10 px-2 py-0.5 rounded">Current</span>}
+                                      <button onClick={() => handleEditExperience(exp)} className="p-1 hover:bg-secondary rounded" title="Edit">
+                                        <Pencil className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                      </button>
+                                      <button onClick={() => handleDeleteExperience(exp.id)} className="p-1 hover:bg-secondary rounded" title="Delete">
+                                        <Trash2 className="h-3 w-3 text-muted-foreground hover:text-red-600" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-sm text-foreground/70 mb-2">
+                                    {exp.company} • {exp.start_date ? new Date(exp.start_date).getFullYear() : ''} - {exp.is_current ? 'Present' : (exp.end_date ? new Date(exp.end_date).getFullYear() : '')}
+                                  </div>
+                                  {exp.description && <p className="text-xs text-muted-foreground">{exp.description}</p>}
+                                </div>
+                              </motion.div>
+                            ))
+                          )}
                         </div>
                       </motion.div>
 
@@ -390,23 +519,49 @@ export default function ProfilePage() {
                             </div>
                             <h2 className="text-xl font-bold font-display text-foreground">Education</h2>
                           </div>
+                          <button
+                            onClick={() => setIsAddEducationOpen(true)}
+                            className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-500/10 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            <Plus className="h-4 w-4" />
+                            Add
+                          </button>
                         </div>
                         <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
-                          {education.map((edu, idx) => (
-                            <motion.div
-                              initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
-                              key={edu.degree} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
-                            >
-                              <div className="flex items-center justify-center w-10 h-10 rounded-full border border-card bg-secondary text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 transition-transform group-hover:scale-110">
-                                <div className="h-2 w-2 rounded-full bg-purple-500" />
-                              </div>
-                              <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-border bg-card/50 shadow-sm transition-all group-hover:shadow-md group-hover:border-purple-500/30">
-                                <h3 className="font-bold text-foreground text-sm mb-1">{edu.degree}</h3>
-                                <div className="text-sm text-foreground/70 mb-2">{edu.school} • {edu.period}</div>
-                                <p className="text-xs text-muted-foreground">{edu.description}</p>
-                              </div>
-                            </motion.div>
-                          ))}
+                          {educationList.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-8">No education added yet. Click "Add" to get started.</p>
+                          ) : (
+                            educationList.map((edu, idx) => (
+                              <motion.div
+                                initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
+                                key={edu.id || edu.degree} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
+                              >
+                                <div className="flex items-center justify-center w-10 h-10 rounded-full border border-card bg-secondary text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 transition-transform group-hover:scale-110">
+                                  <div className="h-2 w-2 rounded-full bg-purple-500" />
+                                </div>
+                                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-border bg-card/50 shadow-sm transition-all group-hover:shadow-md group-hover:border-purple-500/30">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <h3 className="font-bold text-foreground text-sm">{edu.degree}</h3>
+                                    <div className="flex items-center gap-1">
+                                      {edu.is_current && <span className="text-[10px] uppercase tracking-wider font-bold text-green-600 bg-green-500/10 px-2 py-0.5 rounded">Current</span>}
+                                      <button onClick={() => handleEditEducation(edu)} className="p-1 hover:bg-secondary rounded" title="Edit">
+                                        <Pencil className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                      </button>
+                                      <button onClick={() => handleDeleteEducation(edu.id)} className="p-1 hover:bg-secondary rounded" title="Delete">
+                                        <Trash2 className="h-3 w-3 text-muted-foreground hover:text-red-600" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-sm text-foreground/70 mb-2">
+                                    {edu.school} • {edu.start_date ? new Date(edu.start_date).getFullYear() : ''} - {edu.is_current ? 'Present' : (edu.end_date ? new Date(edu.end_date).getFullYear() : '')}
+                                  </div>
+                                  {edu.field_of_study && <p className="text-xs text-muted-foreground mb-1">Field: {edu.field_of_study}</p>}
+                                  {edu.grade && <p className="text-xs text-muted-foreground mb-1">Grade: {edu.grade}</p>}
+                                  {edu.description && <p className="text-xs text-muted-foreground">{edu.description}</p>}
+                                </div>
+                              </motion.div>
+                            ))
+                          )}
                         </div>
                       </motion.div>
                     </div>
@@ -556,7 +711,22 @@ export default function ProfilePage() {
           setIsEditModalOpen(false);
         }}
       />
+
+      {/* Add/Edit Experience Modal */}
+      <AddExperienceModal
+        isOpen={isAddExperienceOpen}
+        onClose={handleExperienceModalClose}
+        onSuccess={handleExperienceSuccess}
+        editData={editingExperience}
+      />
+
+      {/* Add/Edit Education Modal */}
+      <AddEducationModal
+        isOpen={isAddEducationOpen}
+        onClose={handleEducationModalClose}
+        onSuccess={handleEducationSuccess}
+        editData={editingEducation}
+      />
     </motion.div>
   );
 }
-

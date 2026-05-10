@@ -949,6 +949,65 @@ final class CandidateController
         return ['success' => true, 'message' => 'Skill endorsed'];
     }
 
+    public function getCustomUrl(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+
+        $pdo = $this->getPdo();
+        if (!$pdo) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        $stmt = $pdo->prepare('SELECT custom_url FROM candidates WHERE user_id = :user_id');
+        $stmt->execute(['user_id' => $userId]);
+        $customUrl = $stmt->fetchColumn();
+
+        return [
+            'success' => true,
+            'data' => ['custom_url' => $customUrl === false ? null : (string)$customUrl]
+        ];
+    }
+
+    public function saveCustomUrl(Request $request): array
+    {
+        $userId = (string)($request->user('id') ?? 'local-seeker');
+        $data = $request->json();
+        $customUrl = $data['custom_url'] ?? '';
+
+        // Validate: only allow alphanumeric, hyphens, underscores
+        if ($customUrl !== '' && !preg_match('/^[a-zA-Z0-9_-]+$/', $customUrl)) {
+            return ['success' => false, 'message' => 'Custom URL can only contain letters, numbers, hyphens, and underscores'];
+        }
+
+        $pdo = $this->getPdo();
+        if (!$pdo) {
+            return ['success' => false, 'message' => 'Database unavailable'];
+        }
+
+        // Check uniqueness
+        if ($customUrl !== '') {
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM candidates WHERE custom_url = :custom_url AND user_id != :user_id');
+            $stmt->execute(['custom_url' => $customUrl, 'user_id' => $userId]);
+            if ((int)$stmt->fetchColumn() > 0) {
+                return ['success' => false, 'message' => 'This custom URL is already taken'];
+            }
+        }
+
+        $stmt = $pdo->prepare('UPDATE candidates SET custom_url = :custom_url WHERE user_id = :user_id');
+        $stmt->execute(['custom_url' => $customUrl ?: null, 'user_id' => $userId]);
+
+        return ['success' => true, 'message' => 'Custom URL saved successfully', 'data' => ['custom_url' => $customUrl]];
+    }
+
+    private function getPdo(): ?\PDO
+    {
+        try {
+            return \App\Core\Database\Connection::getPdo();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     public function getSkillEndorsements(Request $request): array
     {
         $userId = (string)($request->user('id') ?? 'local-seeker');

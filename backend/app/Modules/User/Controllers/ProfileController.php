@@ -5,206 +5,266 @@ declare(strict_types=1);
 namespace App\Modules\User\Controllers;
 
 use App\Core\Http\Request;
-use App\Modules\User\Services\ProfileService;
+use App\Core\Http\Response;
+use App\Core\Database\Connection;
+use PDO;
 use Throwable;
 
 final class ProfileController
 {
-    private ProfileService $profileService;
-
-    public function __construct()
+    private function generateUuidV4(): string
     {
-        $this->profileService = new ProfileService();
+        $data = random_bytes(16);
+        $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
+        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
     /**
-     * GET /api/profile
-     * Get authenticated user's profile
-     * 
-     * @return array<string, mixed>
+     * GET /api/user/profile
+     * Get user profile with all related data
      */
-    public function getProfile(Request $request): array
+    public function getProfile(Request $request): Response
     {
+        $userId = $request->header('x-user-id');
+        if (!$userId) {
+            return Response::json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
         try {
-            // Check authentication
-            $userId = (string)($request->user('id') ?? '');
-            if ($userId === '') {
-                return [
-                    'status' => false,
-                    'message' => 'Authentication required',
-                ];
+            $pdo = Connection::getPdo();
+            
+            // Get user basic info
+            $stmt = $pdo->prepare('
+                SELECT id, first_name, last_name, email, bio, headline, 
+                       location, website, phone, avatar_url, role, created_at
+                FROM users 
+                WHERE id = ?
+            ');
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user) {
+                return Response::json(['success' => false, 'message' => 'User not found'], 404);
             }
-            
-            $profile = $this->profileService->getProfile($userId);
-            
-            if (!$profile) {
-                return [
-                    'status' => false,
-                    'message' => 'Profile not found',
-                ];
-            }
-            
-            return [
+
+            // Get experience
+            $stmt = $pdo->prepare('
+                SELECT * FROM user_experience 
+                WHERE user_id = ? 
+                ORDER BY is_current DESC, start_date DESC
+            ');
+            $stmt->execute([$userId]);
+            $user['experience'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Get education
+            $stmt = $pdo->prepare('
+                SELECT * FROM user_education 
+                WHERE user_id = ? 
+                ORDER BY is_current DESC, start_date DESC
+            ');
+            $stmt->execute([$userId]);
+            $user['education'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Get projects
+            $stmt = $pdo->prepare('
+                SELECT * FROM user_projects 
+                WHERE user_id = ? 
+                ORDER BY is_current DESC, start_date DESC
+            ');
+            $stmt->execute([$userId]);
+            $user['projects'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Get publications
+            $stmt = $pdo->prepare('
+                SELECT * FROM user_publications 
+                WHERE user_id = ? 
+                ORDER BY publication_date DESC
+            ');
+            $stmt->execute([$userId]);
+            $user['publications'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Get certifications
+            $stmt = $pdo->prepare('
+                SELECT * FROM user_certifications 
+                WHERE user_id = ? 
+                ORDER BY issue_date DESC
+            ');
+            $stmt->execute([$userId]);
+            $user['certifications'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Get skills
+            $stmt = $pdo->prepare('
+                SELECT * FROM user_skills 
+                WHERE user_id = ? 
+                ORDER BY endorsement_count DESC
+            ');
+            $stmt->execute([$userId]);
+            $user['skills'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Get custom URL
+            $stmt = $pdo->prepare('SELECT custom_url FROM user_custom_urls WHERE user_id = ?');
+            $stmt->execute([$userId]);
+            $customUrl = $stmt->fetchColumn();
+            $user['custom_url'] = $customUrl ?: null;
+
+            return Response::json([
+                'success' => true,
                 'status' => true,
-                'message' => 'Profile retrieved successfully',
-                'data' => $profile,
-            ];
-            
+                'data' => $user
+            ]);
         } catch (Throwable $e) {
-            return [
-                'status' => false,
-                'message' => 'Failed to retrieve profile',
-                'error' => $e->getMessage(),
-            ];
+            return Response::json([
+                'success' => false,
+                'message' => 'Failed to load profile: ' . $e->getMessage()
+            ], 500);
         }
     }
 
     /**
-     * PUT /api/profile
-     * Update authenticated user's profile
-     * 
-     * Body parameters:
-     * - first_name: First name (required if provided)
-     * - last_name: Last name
-     * - phone: Phone number
-     * - bio: Biography
-     * - headline: Professional headline
-     * - location: Location
-     * - website: Website URL
-     * - skills: Array of skills (for candidates)
-     * - experience_years: Years of experience (for candidates)
-     * - education_level: Education level (for candidates)
-     * - availability_status: Availability status (for candidates)
-     * - salary_min: Minimum salary expectation (for candidates)
-     * - salary_max: Maximum salary expectation (for candidates)
-     * - profile_image: Profile image file upload (multipart/form-data)
-     * 
-     * @return array<string, mixed>
+     * PUT /api/user/profile
+     * Update user basic profile info
      */
-    public function updateProfile(Request $request): array
+    public function updateProfile(Request $request): Response
     {
+        $userId = $request->header('x-user-id');
+        if (!$userId) {
+            return Response::json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $data = $request->json();
+
         try {
-            // Check authentication
-            $userId = (string)($request->user('id') ?? '');
+            $pdo = Connection::getPdo();
             
-            if ($userId === '') {
-                return [
-                    'status' => false,
-                    'message' => 'Authentication required. Please login first.',
-                ];
-            }
+            $fields = [];
+            $values = [];
             
-            error_log("ProfileController::updateProfile - User ID: $userId");
-            
-            // Parse request data
-            $data = $request->json();
-            
-            // Handle profile image upload if present
-            if (isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] === UPLOAD_ERR_OK) {
-                $uploadResult = $this->profileService->handleImageUpload($_FILES['profile_image']);
-                
-                if (!$uploadResult['success']) {
-                    return [
-                        'status' => false,
-                        'message' => $uploadResult['message'],
-                    ];
+            $allowedFields = [
+                'first_name', 'last_name', 'bio', 'headline', 
+                'location', 'website', 'phone'
+            ];
+
+            foreach ($allowedFields as $field) {
+                if (isset($data[$field])) {
+                    $fields[] = "$field = ?";
+                    $values[] = $data[$field];
                 }
-                
-                $data['avatar_url'] = $uploadResult['url'];
             }
-            
-            // Update profile
-            $result = $this->profileService->updateProfile($userId, $data);
-            
-            if (!$result['success']) {
-                return [
-                    'status' => false,
-                    'message' => $result['message'],
-                    'errors' => $result['errors'] ?? null,
-                ];
+
+            if (empty($fields)) {
+                return Response::json(['success' => false, 'message' => 'No fields to update'], 400);
             }
+
+            $values[] = $userId;
+            $sql = 'UPDATE users SET ' . implode(', ', $fields) . ' WHERE id = ?';
             
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($values);
+
             // Fetch updated profile
-            $profile = $this->profileService->getProfile($userId);
-            
-            return [
+            $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?');
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return Response::json([
+                'success' => true,
                 'status' => true,
                 'message' => 'Profile updated successfully',
-                'data' => $profile,
-            ];
-            
+                'data' => $user
+            ]);
         } catch (Throwable $e) {
-            error_log("ProfileController::updateProfile - Exception: " . $e->getMessage());
-            error_log("ProfileController::updateProfile - Trace: " . $e->getTraceAsString());
-            return [
-                'status' => false,
-                'message' => 'Failed to update profile',
-                'error' => $e->getMessage(),
-            ];
+            return Response::json([
+                'success' => false,
+                'message' => 'Failed to update profile: ' . $e->getMessage()
+            ], 500);
         }
     }
 
     /**
-     * POST /api/profile/image
-     * Upload profile image
-     * 
-     * @return array<string, mixed>
+     * GET /api/user/custom-url
      */
-    public function uploadImage(Request $request): array
+    public function getCustomUrl(Request $request): Response
     {
+        $userId = $request->header('x-user-id');
+        if (!$userId) {
+            return Response::json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
         try {
-            // Check authentication
-            $userId = (string)($request->user('id') ?? '');
-            if ($userId === '') {
-                return [
-                    'status' => false,
-                    'message' => 'Authentication required',
-                ];
-            }
-            
-            // Handle file upload
-            if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
-                return [
-                    'status' => false,
-                    'message' => 'No image file uploaded',
-                ];
-            }
-            
-            $uploadResult = $this->profileService->handleImageUpload($_FILES['image']);
-            
-            if (!$uploadResult['success']) {
-                return [
-                    'status' => false,
-                    'message' => $uploadResult['message'],
-                ];
-            }
-            
-            // Update user's avatar_url
-            $result = $this->profileService->updateProfile($userId, [
-                'avatar_url' => $uploadResult['url'],
+            $pdo = Connection::getPdo();
+            $stmt = $pdo->prepare('SELECT custom_url FROM user_custom_urls WHERE user_id = ?');
+            $stmt->execute([$userId]);
+            $customUrl = $stmt->fetchColumn();
+
+            return Response::json([
+                'success' => true,
+                'data' => ['custom_url' => $customUrl ?: null]
             ]);
-            
-            if (!$result['success']) {
-                return [
-                    'status' => false,
-                    'message' => 'Failed to update profile image',
-                ];
-            }
-            
-            return [
-                'status' => true,
-                'message' => 'Profile image uploaded successfully',
-                'data' => [
-                    'url' => $uploadResult['url'],
-                ],
-            ];
-            
         } catch (Throwable $e) {
-            return [
-                'status' => false,
-                'message' => 'Failed to upload image',
-                'error' => $e->getMessage(),
-            ];
+            return Response::json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * PUT /api/user/custom-url
+     */
+    public function updateCustomUrl(Request $request): Response
+    {
+        $userId = $request->header('x-user-id');
+        if (!$userId) {
+            return Response::json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $data = $request->json();
+        $customUrl = $data['custom_url'] ?? '';
+
+        if (empty($customUrl)) {
+            return Response::json(['success' => false, 'message' => 'Custom URL is required'], 400);
+        }
+
+        // Validate custom URL format
+        if (!preg_match('/^[a-z0-9-]+$/', $customUrl)) {
+            return Response::json([
+                'success' => false,
+                'message' => 'Custom URL can only contain lowercase letters, numbers, and hyphens'
+            ], 400);
+        }
+
+        try {
+            $pdo = Connection::getPdo();
+            
+            // Check if URL is already taken
+            $stmt = $pdo->prepare('SELECT user_id FROM user_custom_urls WHERE custom_url = ? AND user_id != ?');
+            $stmt->execute([$customUrl, $userId]);
+            if ($stmt->fetch()) {
+                return Response::json([
+                    'success' => false,
+                    'message' => 'This custom URL is already taken'
+                ], 400);
+            }
+
+            // Insert or update
+            $stmt = $pdo->prepare('
+                INSERT INTO user_custom_urls (id, user_id, custom_url)
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE custom_url = ?
+            ');
+            $stmt->execute([$this->generateUuidV4(), $userId, $customUrl, $customUrl]);
+
+            return Response::json([
+                'success' => true,
+                'message' => 'Custom URL updated successfully',
+                'data' => ['custom_url' => $customUrl]
+            ]);
+        } catch (Throwable $e) {
+            return Response::json([
+                'success' => false,
+                'message' => 'Failed to update custom URL: ' . $e->getMessage()
+            ], 500);
         }
     }
 }
