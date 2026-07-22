@@ -27,9 +27,24 @@ if ($method === 'OPTIONS') {
 }
 
 if ($path === '/health' || $path === '/api/health') {
+    $dbStatus = 'unavailable';
+    $dbError = null;
+    try {
+        $pdo = \App\Core\Database\Connection::getPdo();
+        $pdo->query('SELECT 1');
+        $dbStatus = 'connected';
+    } catch (\Throwable $e) {
+        $dbStatus = 'unavailable';
+        $dbError = $e->getMessage();
+    }
+
+    $overallStatus = ($dbStatus === 'connected') ? 'ok' : 'degraded';
+
     Response::json([
         'service' => 'JobLink API',
-        'status' => 'ok',
+        'status' => $overallStatus,
+        'database' => $dbStatus,
+        'db_error' => $dbError,
         'timestamp' => date(DATE_ATOM),
     ])->send();
     exit;
